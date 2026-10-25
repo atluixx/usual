@@ -90,8 +90,10 @@ database creation does not establish a tested backup/restore policy.
 Logs may contain safe error codes, request IDs, status/duration, and aggregate
 metrics. Exclude passwords, tokens, invite codes, email addresses, object URLs,
 private media, prompts, guesses, and full request/response bodies. Restrict
-access. The application does not install Analytics or Crashlytics in this
-milestone.
+access. Release builds remove Android Log calls through R8, including dependency
+calls. Debug Firebase SDK diagnostics can contain account identifiers; keep raw
+logcat private and use emulator fixtures. The application does not install
+Analytics or Crashlytics in this milestone.
 
 ## Required evidence
 

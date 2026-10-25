@@ -129,3 +129,27 @@ identities or documents were created. Existing providers were not disabled.
 The private-profile rules are a prototype, with emulator authorization/schema
 coverage; review them before broad distribution. Device/build results belong in
 the PR evidence. Infrastructure configuration alone does not verify UI behavior.
+
+## Build and logging notes
+
+Firebase Auth 25 requires Kotlin 2.4 metadata. The version catalog supplies
+Kotlin 2.4.21 to AGP's built-in Kotlin through its supported classpath override.
+Compose and Lifecycle are pinned to versions compatible with the available SDK
+36 platform; we do not bypass metadata or lint checks. Gradle worker/heap limits
+keep local emulator development within a modest memory budget.
+
+Live release builds use R8 and remove Android Log calls, including dependency
+logs. Debug builds retain SDK diagnostics, which can include account
+identifiers; do not share raw logcat or use real account data as test fixtures.
+The unsigned release build is for verification, not a signed/store-distributed
+release:
+
+```sh
+# From android/, after downloading the live client configuration
+./gradlew :app:assembleLiveRelease
+```
+
+Its output is
+`android/app/build/outputs/apk/live/release/app-live-release-unsigned.apk`. The
+live debug APK is convenient for local development; use intentional accounts and
+keep diagnostic output private. No production log collection is installed.
