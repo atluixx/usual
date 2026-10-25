@@ -64,3 +64,9 @@ local preview consent. This handles an already-running Glance session and clears
 old pixels from the next rendered view while a refresh loads. Image bytes stay
 in composition memory, not DataStore. See the
 [Glance state/update guide](https://developer.android.com/develop/ui/compose/glance/glance-app-widget).
+
+An explicit preview opt-out also persists a local deny flag for that UID. It
+continues to hide this installation's previews if an offline preference save
+fails or another installation changes the remote preference. Only a successful
+explicit enable on this installation clears that deny flag. Fresh remote
+permission is still required for every image fetch.

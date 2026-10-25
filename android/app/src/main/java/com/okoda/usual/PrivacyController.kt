@@ -50,7 +50,7 @@ class PrivacyController(private val app: UsualApplication, private val auth: Fir
                     if (auth.currentUser?.uid != uid) return@addSnapshotListener
                     if (error != null) { hidePreviews(); mutable.update { it.copy(ready = false, notice = "Privacy preferences unavailable. Reconnect to refresh.") } }
                     else if (document != null && !document.metadata.isFromCache) {
-                        mutable.update { it.copy(ready = true, contentNotifications = document.getBoolean("contentNotifications") == true, gameNotifications = document.getBoolean("gameNotifications") == true, widgetPreview = document.getBoolean("widgetPreview") == true) }
+                        mutable.update { it.copy(ready = true, contentNotifications = document.getBoolean("contentNotifications") == true, gameNotifications = document.getBoolean("gameNotifications") == true, widgetPreview = document.getBoolean("widgetPreview") == true && !local.getBoolean("widget_blocked:" + uid, false)) }
                         local.edit().putString("widget_uid", uid.takeIf { mutable.value.widgetPreview }).apply()
                         if (!mutable.value.contentNotifications && !mutable.value.gameNotifications) clearNotifications()
                         refreshWidgets(); scope.launch { synchronizeToken() }
@@ -59,7 +59,7 @@ class PrivacyController(private val app: UsualApplication, private val auth: Fir
             }
         }
     }
-    fun widgetAllowed(uid: String) = local.getString("widget_uid", null) == uid
+    fun widgetAllowed(uid: String) = local.getString("widget_uid", null) == uid && !local.getBoolean("widget_blocked:" + uid, false)
     fun clearNotifications() { (app.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancelAll() }
     fun hidePreviews() { local.edit().remove("widget_uid").apply(); clearNotifications(); refreshWidgets() }
     fun refreshWidgets() {
@@ -68,12 +68,20 @@ class PrivacyController(private val app: UsualApplication, private val auth: Fir
     fun set(content: Boolean = mutable.value.contentNotifications, games: Boolean = mutable.value.gameNotifications, widget: Boolean = mutable.value.widgetPreview) {
         val uid = mutable.value.uid ?: return
         if (mutable.value.busy || !mutable.value.ready) return
-        if (!widget) hidePreviews()
+        if (!widget) {
+            local.edit().putBoolean("widget_blocked:" + uid, true).apply()
+            hidePreviews()
+            mutable.update { it.copy(widgetPreview = false) }
+        }
         mutable.update { it.copy(busy = true, notice = null) }
         scope.launch {
             try {
                 app.backend.call("preferences.set", mapOf("contentNotifications" to content, "gameNotifications" to games, "widgetPreview" to widget), expectedUid = uid)
-                if (auth.currentUser?.uid == uid) mutable.update { it.copy(contentNotifications = content, gameNotifications = games, widgetPreview = widget) }
+                if (auth.currentUser?.uid == uid) {
+                    local.edit().putBoolean("widget_blocked:" + uid, !widget).putString("widget_uid", uid.takeIf { widget }).apply()
+                    mutable.update { it.copy(contentNotifications = content, gameNotifications = games, widgetPreview = widget) }
+                    refreshWidgets()
+                }
                 synchronizeToken()
             } catch (error: UserFacingException) { if (auth.currentUser?.uid == uid) mutable.update { it.copy(notice = error.message) } }
             finally { if (auth.currentUser?.uid == uid) mutable.update { it.copy(busy = false) } }
