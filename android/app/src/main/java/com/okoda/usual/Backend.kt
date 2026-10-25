@@ -31,6 +31,7 @@ class Backend(context: Context, private val functions: FirebaseFunctions, privat
                 @Suppress("UNCHECKED_CAST")
                 val result = functions.getHttpsCallable("api").call(payload).await().data as? Map<String, Any?>
                     ?: throw UserFacingException("The response could not be read. Refresh and retry.")
+                if (auth.currentUser?.uid != uid) throw UserFacingException("Your session changed. Please retry.")
                 if (requestId == null) journal.edit().remove(journalKey).apply()
                 return result
             } catch (error: FirebaseFunctionsException) {
