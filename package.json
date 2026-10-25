@@ -9,6 +9,8 @@
     "format:check": "prettier --check .",
     "lint:docs": "markdownlint-cli2",
     "check": "npm run format:check && npm run lint:docs",
+    "android:install": "node scripts/install-apk.mjs",
+    "test:install": "node --test tests/install-apk.test.mjs",
     "test:firebase": "npx -y firebase-tools@15.34.1 emulators:exec --project demo-usual --only auth,firestore \"node --test tests/firebase.test.mjs\"",
     "test:backend": "npm --prefix functions run build && GCLOUD_PROJECT=demo-usual npx -y firebase-tools@15.34.1 emulators:exec --project demo-usual --only auth,firestore,storage \"node --test --test-concurrency=1 functions/test/*.test.mjs\"",
     "test:callable": "npm --prefix functions run build && GCLOUD_PROJECT=demo-usual npx -y firebase-tools@15.34.1 emulators:exec --project demo-usual --only auth,firestore,functions,storage \"node --test tests/callable.test.mjs\"",

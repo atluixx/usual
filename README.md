@@ -40,6 +40,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) and [Firebase setup](docs/firebase.md) to
 run the app with emulators or connect the live Firebase project. Rebrand with
 the documented [build configuration](docs/branding.md).
 
+To build and install/update the live APK on a USB-debugging device, run
+`npm run android:install`. See the
+[installation options](CONTRIBUTING.md#install-or-update-on-a-device).
+
 ## Contributing
 
 Start with [GitHub Issues](https://github.com/atluixx/usual/issues) and follow

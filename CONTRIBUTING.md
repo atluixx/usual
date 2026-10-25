@@ -115,6 +115,51 @@ emulator trust in a live project.
 
 ## Branding and device checks
 
+### Install or update on a device
+
+On Linux/macOS, enable **Developer options → USB debugging** on your phone,
+connect it by USB and accept its debugging prompt. From the repository root:
+
+```sh
+npm run android:install
+```
+
+This builds `:app:assembleLiveDebug`, then uses `adb install -r` to install or
+replace `com.okoda.usual` while retaining app data and its guest identity. Build
+prerequisites above and the ignored live
+`android/app/src/live/google-services.json` from
+[Firebase setup](docs/firebase.md) are required. The script can also be called
+directly with `node /path/to/usual/scripts/install-apk.mjs` from another
+directory.
+
+```sh
+# Install the already-built APK without running Gradle
+npm run android:install -- --no-build
+# Select a phone when multiple phones/emulators are connected
+npm run android:install -- --serial DEVICE_SERIAL
+# Display all options
+npm run android:install -- --help
+```
+
+`ANDROID_SERIAL` also selects a device; `--serial` takes precedence. The script
+rejects ambiguous, disconnected, unauthorized or offline targets before
+building. The chosen serial stays fixed during the build. ADB is discovered from
+an explicit `ADB=/path/to/adb`, then PATH, `ANDROID_HOME`, `ANDROID_SDK_ROOT`,
+`android/local.properties` (`sdk.dir`), or standard Linux/macOS SDK directories.
+Install Android SDK Platform-Tools if ADB is missing.
+
+The APK is `android/app/build/outputs/apk/live/debug/app-live-debug.apk`.
+Build/install failures return a nonzero exit code. Updates require a compatible
+version and the same signing key as the installed app. Use the original signing
+key to resolve signing conflicts; uninstalling can lose an unlinked guest
+identity. The script never uninstalls, clears app data, forces a downgrade or
+grants notification permissions. Open Usual on the device after installation.
+
+Run `npm run test:install` for isolated CLI tests. They use synthetic ADB/Gradle
+executables and need no Android device, SDK, credentials or production secrets.
+
+### Branding and integrated device verification
+
 With JDK 21+ and Android SDK 36/build-tools 36.0.0, run
 `ANDROID_HOME=/path/to/android-sdk npm run test:branding`. It rebuilds emulator
 APKs with a synthetic custom logo/name, checks packaged resources and stable ID,
