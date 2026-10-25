@@ -1,0 +1,11 @@
+node_modules/
+package-lock.json
+android/.gradle/
+android/.kotlin/
+android/**/build/
+android/gradlew
+android/gradlew.bat
+android/app/src/live/google-services.json
+firebase-debug.log
+firestore-debug.log
+ui-debug.log

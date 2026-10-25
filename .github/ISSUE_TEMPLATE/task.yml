@@ -1,0 +1,30 @@
+name: Feature or engineering task
+description: Propose one independently testable change.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Problem and context
+      description: Search existing issues and PRs first; link related work here.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and requirements
+      description: Include privacy, lifecycle, and API effects where relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria and verification
+      description: Describe observable behavior and how it will be checked.
+      placeholder: "- [ ] ..."
+    validations:
+      required: true
+  - type: textarea
+    id: exclusions
+    attributes:
+      label: Dependencies and non-goals

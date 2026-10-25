@@ -1,0 +1,11 @@
+{
+  "globs": ["**/*.md"],
+  "ignores": ["node_modules/**"],
+  "config": {
+    "MD013": false,
+    "MD041": false,
+    "MD033": {
+      "allowed_elements": ["p", "h1", "img", "a"],
+    },
+  },
+}
