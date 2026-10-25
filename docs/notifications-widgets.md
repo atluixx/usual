@@ -56,3 +56,11 @@ The observer keeps its child subscription on metadata-only changes, avoiding
 false revocation caused by eager memory-cache eviction. A server denial still
 clears access. Fresh process startup must obtain server confirmation before
 opening shared UI; already queued owner-bound sends can survive that restart.
+
+Glance stores only a numeric refresh revision. Each supported update increments
+it and requests a widget update. The running composition fetches a new snapshot
+for that revision; a bitmap is eligible only for the current revision, UID and
+local preview consent. This handles an already-running Glance session and clears
+old pixels from the next rendered view while a refresh loads. Image bytes stay
+in composition memory, not DataStore. See the
+[Glance state/update guide](https://developer.android.com/develop/ui/compose/glance/glance-app-widget).
