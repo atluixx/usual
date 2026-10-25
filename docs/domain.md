@@ -1,9 +1,9 @@
 # Firebase domain model
 
 The owner replaced PostgreSQL with Firestore before product implementation. This
-model preserves the product invariants while making enforcement explicit. Only
-`users/{uid}` is implemented now; all other collections below are proposals and
-are denied by the deployed foundation rules.
+model preserves the product invariants while making enforcement explicit.
+Profiles, pairing state, invitations, couples, account tombstones, operation
+receipts and cleanup jobs are implemented. Content and games remain proposals.
 
 ## Implemented private profile
 
@@ -21,7 +21,7 @@ cannot list or delete profiles or add membership/admin fields.
 | Entity/path                            | Purpose and enforcement required before implementation                                                     |
 | -------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | `couples/{coupleId}`                   | Exactly two distinct member UIDs only when active; closed couples authorize no reads                       |
-| `memberships/{uid}`                    | One authoritative active couple per user, written only with the couple transaction                         |
+| `pairing/{uid}`                        | One authoritative active couple per user, written only with the couple transaction                         |
 | `invitations/{invitationId}`           | Creator, code digest, claimant, validity/consent/status; never a public code directory                     |
 | `couples/{coupleId}/content/{id}`      | Sender, type, private media reference, shared saved status, version, server timestamps, deletion tombstone |
 | `uploads/{uploadId}`                   | Private pending-media authorization/validation state and unfinished-upload cleanup                         |

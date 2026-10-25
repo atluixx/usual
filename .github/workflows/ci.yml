@@ -46,6 +46,8 @@ jobs:
           java-version: "21"
       - run: npm ci --ignore-scripts
       - run: npm run test:firebase
+      - run: npm ci --ignore-scripts --prefix functions
+      - run: npm run test:callable
 
   android:
     name: Android compile, lint, and unit tests
@@ -75,3 +77,24 @@ jobs:
       - run:
           ./gradlew --no-daemon :app:assembleEmulatorDebug
           :app:lintEmulatorDebug :app:testEmulatorDebugUnitTest
+
+  backend:
+    name: Trusted Firebase operations
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - run: npm ci --ignore-scripts --prefix functions
+      - run: npm --prefix functions run check
+      - run: npm run test:backend

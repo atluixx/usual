@@ -185,6 +185,87 @@ test("unknown collections and orphaned user subcollections stay inaccessible", a
   }
 });
 
+test("server-owned pairing state cannot be forged and couple reads require current membership", async () => {
+  await environment.withSecurityRulesDisabled(async (context) => {
+    const database = context.firestore();
+    for (const [uid, coupleId] of [
+      ["alice", "first"],
+      ["bob", "first"],
+      ["charlie", "second"],
+      ["dana", "second"],
+    ]) {
+      await setDoc(doc(database, "pairing/" + uid), {
+        coupleId,
+        invitationId: null,
+        status: "paired",
+      });
+    }
+    await setDoc(doc(database, "couples/first"), {
+      memberUids: ["alice", "bob"],
+      memberNames: { alice: "Alice", bob: "Bob" },
+      status: "active",
+    });
+    await setDoc(doc(database, "couples/second"), {
+      memberUids: ["charlie", "dana"],
+      memberNames: { charlie: "Charlie", dana: "Dana" },
+      status: "active",
+    });
+    await setDoc(doc(database, "invitations/private"), {
+      creatorUid: "alice",
+      claimantUid: "bob",
+      status: "claimed",
+    });
+  });
+  const alice = ownerDb();
+  const stranger = environment.authenticatedContext("charlie").firestore();
+  await assertSucceeds(getDoc(doc(alice, "pairing/alice")));
+  await assertSucceeds(getDoc(doc(alice, "couples/first")));
+  await assertSucceeds(getDoc(doc(alice, "invitations/private")));
+  for (const path of ["pairing/bob", "couples/second"])
+    await assertFails(getDoc(doc(alice, path)));
+  for (const path of ["pairing/alice", "couples/first", "invitations/private"])
+    await assertFails(getDoc(doc(stranger, path)));
+  for (const path of [
+    "pairing/alice",
+    "couples/first",
+    "invitations/private",
+  ]) {
+    await assertFails(
+      setDoc(doc(alice, path), {
+        coupleId: "first",
+        memberUids: ["alice", "charlie"],
+        creatorUid: "alice",
+      }),
+    );
+    await assertFails(deleteDoc(doc(alice, path)));
+  }
+  await assertFails(getDocs(collection(alice, "couples")));
+  await assertFails(getDocs(collection(alice, "invitations")));
+  await environment.withSecurityRulesDisabled(async (context) => {
+    await updateDoc(doc(context.firestore(), "couples/first"), {
+      status: "closed",
+    });
+  });
+  await assertFails(getDoc(doc(alice, "couples/first")));
+});
+
+test("account deletion tombstones block stale authenticated tokens", async () => {
+  await seed();
+  await environment.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), "accounts/alice"), {
+      state: "deleting",
+    });
+  });
+  await assertFails(getDoc(ownRef()));
+  await assertFails(
+    updateDoc(ownRef(), {
+      displayName: "Still here",
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await assertFails(getDoc(doc(ownerDb(), "pairing/alice")));
+});
+
 test("email/password identity persists a private profile across sign-out/sign-in", async () => {
   const app = initializeApp(
     { projectId, apiKey: "fake-emulator-api-key" },

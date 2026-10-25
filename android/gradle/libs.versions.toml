@@ -16,6 +16,7 @@ kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", v
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom" }
 firebase-auth = { module = "com.google.firebase:firebase-auth" }
 firebase-firestore = { module = "com.google.firebase:firebase-firestore" }
+firebase-functions = { module = "com.google.firebase:firebase-functions" }
 credentials = { module = "androidx.credentials:credentials", version.ref = "credentials" }
 credentials-play-services = { module = "androidx.credentials:credentials-play-services-auth", version.ref = "credentials" }
 google-id = { module = "com.google.android.libraries.identity.googleid:googleid", version.ref = "googleId" }

@@ -21,9 +21,10 @@ retired.
 - Build: pinned Gradle wrapper with distribution SHA-256, Android Gradle plugin,
   version catalog, separate live/emulator flavors, and least-privilege CI.
 
-Only authentication and a private user profile are in the first implementation.
-[docs/firebase.md](firebase.md) defines their exact collection contract, setup,
-environments, and verification. There is no custom API server or PostgreSQL.
+Authentication, private profiles, trusted pairing, unpairing and identity
+deletion are implemented. [docs/firebase.md](firebase.md) defines their exact
+collection contract, setup, environments, and verification. There is no custom
+API server or PostgreSQL.
 
 ## Why the backend changed
 
@@ -55,18 +56,18 @@ UI state against a fake, and a Firebase implementation used by the application.
 | Games            | Persisted matches/moves and server-validated state transitions    |
 | Notifications    | FCM device registration and durable event delivery                |
 
-Pairing, game moves, account deletion, and media cleanup require trusted backend
-operations, likely callable Cloud Functions within the same Firebase project.
-They are not implemented in this milestone. Each needs a contract, idempotency,
-transaction limits, authorization, and cost review before deployment. Do not
-give clients write access to membership or authoritative game state to avoid
-writing those operations.
+Pairing and identity deletion use the TypeScript callable Functions codebase in
+this Firebase project. Game moves and media cleanup extend those same trusted
+modules. See [the implemented operation contract](mvp-contract.md). Each needs a
+contract, idempotency, transaction limits, authorization, and cost review before
+deployment. Do not give clients write access to membership or authoritative game
+state to avoid writing those operations.
 
 Firestore listeners will provide live state synchronization instead of a bespoke
 Go WebSocket service. Reconnection still requires an authorized current
 snapshot; notifications remain refresh signals, not authoritative state.
-Photo/drawing bytes do not belong in Firestore documents. Storage, functions,
-and FCM are not provisioned by the current task.
+Photo/drawing bytes do not belong in Firestore documents. Storage and FCM follow
+in the next milestones.
 
 The approved shared-content deletion lifecycle remains unchanged. See
 [domain](domain.md), [privacy](privacy.md), and [roadmap](roadmap.md). Rules and

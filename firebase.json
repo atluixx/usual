@@ -16,9 +16,32 @@
     }
   },
   "emulators": {
-    "auth": { "host": "127.0.0.1", "port": 9099 },
-    "firestore": { "host": "127.0.0.1", "port": 8080 },
-    "ui": { "enabled": true, "host": "127.0.0.1", "port": 4000 },
-    "singleProjectMode": true
-  }
+    "auth": {
+      "host": "127.0.0.1",
+      "port": 9099
+    },
+    "firestore": {
+      "host": "127.0.0.1",
+      "port": 8080
+    },
+    "ui": {
+      "enabled": true,
+      "host": "127.0.0.1",
+      "port": 4000
+    },
+    "singleProjectMode": true,
+    "functions": {
+      "host": "127.0.0.1",
+      "port": 5001
+    }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "usual",
+      "runtime": "nodejs22",
+      "predeploy": ["npm --prefix \"$RESOURCE_DIR\" run build"],
+      "ignore": ["node_modules", ".git", "test", "*.log"]
+    }
+  ]
 }

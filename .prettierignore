@@ -9,3 +9,6 @@ android/app/src/live/google-services.json
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
+
+functions/lib/
+functions/package-lock.json

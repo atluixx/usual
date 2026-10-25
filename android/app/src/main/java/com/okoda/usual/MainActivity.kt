@@ -47,11 +47,13 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val repository = (application as UsualApplication).repository
+        val couples = (application as UsualApplication).couples
         setContent {
             val model = viewModel { UsualViewModel(repository) }
+            val coupleModel = viewModel { CoupleViewModel(repository, couples) }
             val state by model.state.collectAsStateWithLifecycle()
             MaterialTheme {
-                UsualScreen(state, model, acquireGoogleToken = { googleIdToken(this) }, onSignOut = {
+                UsualScreen(state, model, coupleModel, acquireGoogleToken = { googleIdToken(this) }, onSignOut = {
                     model.signOut()
                     lifecycleScope.launch { clearGoogleCredentialState(this@MainActivity) }
                 })
@@ -64,6 +66,7 @@ class MainActivity : ComponentActivity() {
 private fun UsualScreen(
     state: UsualUiState,
     model: UsualViewModel,
+    coupleModel: CoupleViewModel,
     acquireGoogleToken: suspend () -> String,
     onSignOut: () -> Unit,
 ) {
@@ -81,6 +84,7 @@ private fun UsualScreen(
             if (account == null) {
                 WelcomeForm(state, model, acquireGoogleToken)
             } else {
+                PairingPanel(coupleModel)
                 ProfileForm(account, state, model, acquireGoogleToken, onSignOut)
             }
             if (state.busy) CircularProgressIndicator(Modifier.size(24.dp))
@@ -196,7 +200,6 @@ private fun ProfileForm(
             Text("Link Google (optional)")
         }
     }
-    Text("Couple pairing and drawing exchange are not available in this build yet.")
     if (!account.isGuest) {
         TextButton(onClick = onSignOut, enabled = !state.busy) { Text("Sign out") }
     }
