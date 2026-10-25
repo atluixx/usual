@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { randomBytes } from "node:crypto";
+import { createRequire } from "node:module";
 import { initializeApp, deleteApp } from "firebase/app";
 import {
   getAuth,
@@ -23,6 +24,12 @@ assert.match(
   process.env.FIREBASE_AUTH_EMULATOR_HOST || "",
   /^(127\.0\.0\.1|localhost):\d+$/,
 );
+const require = createRequire(
+  new URL("../functions/package.json", import.meta.url),
+);
+const { initializeApp: initializeAdminApp } = require("firebase-admin/app");
+const { getAuth: adminAuth } = require("firebase-admin/auth");
+initializeAdminApp({ projectId: "demo-usual" });
 assert.match(
   process.env.FIRESTORE_EMULATOR_HOST || "",
   /^(127\.0\.0\.1|localhost):\d+$/,
@@ -79,6 +86,16 @@ test("real callable protocol pairs two anonymous SDK users and denies unauthenti
     );
     await b.call("pair.end", { coupleId: result.coupleId, confirm: true });
     await assert.rejects(getDocFromServer(own));
+    await adminAuth().revokeRefreshTokens(a.auth.currentUser.uid);
+    await assert.rejects(
+      a.call("pair.create", { code: randomBytes(12).toString("hex") }),
+      { code: "functions/unauthenticated" },
+    );
+    await adminAuth().updateUser(c.auth.currentUser.uid, { disabled: true });
+    await assert.rejects(
+      c.call("pair.create", { code: randomBytes(12).toString("hex") }),
+      { code: "functions/unauthenticated" },
+    );
   } finally {
     await Promise.all([a, b, c].map((value) => signOut(value.auth)));
     await Promise.all([a, b, c].map((value) => deleteApp(value.app)));

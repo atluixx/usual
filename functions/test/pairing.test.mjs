@@ -99,6 +99,23 @@ test("retries are idempotent and changed payloads cannot reuse a request ID", as
     result,
   );
   assert.equal((await db.collection("couples").get()).size, 1);
+  assert.deepEqual(
+    await call("alice", "pair.create", { code: value }, key),
+    first,
+  );
+  assert.deepEqual(await call("bob", "pair.claim", { code: value }, claimKey), {
+    invitationId: first.invitationId,
+  });
+  await call("alice", "pair.end", { coupleId: result.coupleId, confirm: true });
+  await rejected(
+    call(
+      "alice",
+      "pair.confirm",
+      { invitationId: first.invitationId, confirm: true },
+      confirmKey,
+    ),
+    "permission-denied",
+  );
 });
 
 test("expiry, revocation, self-pairing, code reuse and already paired users are rejected", async () => {

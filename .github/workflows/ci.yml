@@ -46,6 +46,8 @@ jobs:
           java-version: "21"
       - run: npm ci --ignore-scripts
       - run: npm run test:firebase
+      - run: npm ci --ignore-scripts --prefix functions
+      - run: npm run test:callable
 
   android:
     name: Android compile, lint, and unit tests

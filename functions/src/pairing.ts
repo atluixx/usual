@@ -96,9 +96,11 @@ export async function pairing(
       },
       async (tx) => {
         const invitation = (await tx.get(invitationRef(invitationId))).data();
-        validInvitation(invitation);
-        if (invitation.creatorUid !== uid)
-          fail("permission-denied", "Invitation unavailable.");
+        if (invitation?.creatorUid !== uid)
+          return fail("permission-denied", "Invitation unavailable.");
+        if (invitation.status === "accepted")
+          await activeCouple(tx, uid, invitation.coupleId);
+        else validInvitation(invitation);
       },
     );
   }
@@ -145,9 +147,11 @@ export async function pairing(
       },
       async (tx) => {
         const invitation = (await tx.get(invitationRef(invitationId))).data();
-        validInvitation(invitation);
-        if (invitation.claimantUid !== uid)
-          fail("permission-denied", "Invitation unavailable.");
+        if (invitation?.claimantUid !== uid)
+          return fail("permission-denied", "Invitation unavailable.");
+        if (invitation.status === "accepted")
+          await activeCouple(tx, uid, invitation.coupleId);
+        else validInvitation(invitation);
       },
     );
   }
