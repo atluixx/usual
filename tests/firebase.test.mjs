@@ -344,6 +344,54 @@ test("gallery queries are bounded and exclude deleted data; neither partner can 
   );
 });
 
+test("games are couple-private, prompt documents and authoritative writes are denied", async () => {
+  await environment.withSecurityRulesDisabled(async (context) => {
+    const database = context.firestore();
+    await setDoc(doc(database, "couples/game-couple"), {
+      status: "active",
+      memberUids: ["alice", "bob"],
+    });
+    for (const uid of ["alice", "bob"])
+      await setDoc(doc(database, "pairing/" + uid), {
+        coupleId: "game-couple",
+      });
+    await setDoc(doc(database, "couples/game-couple/matches/match"), {
+      phase: "DRAWING",
+      version: 2,
+    });
+    await setDoc(doc(database, "couples/game-couple/secrets/match"), {
+      prompt: "cat",
+    });
+  });
+  const alice = ownerDb();
+  const bob = environment.authenticatedContext("bob").firestore();
+  const outsider = environment.authenticatedContext("stranger").firestore();
+  await assertSucceeds(getDoc(doc(alice, "couples/game-couple/matches/match")));
+  await assertSucceeds(
+    getDocs(query(collection(bob, "couples/game-couple/matches"), limit(20))),
+  );
+  await assertFails(getDocs(collection(alice, "couples/game-couple/matches")));
+  await assertFails(getDoc(doc(outsider, "couples/game-couple/matches/match")));
+  await assertFails(getDoc(doc(alice, "couples/game-couple/secrets/match")));
+  await assertFails(getDoc(doc(bob, "couples/game-couple/secrets/match")));
+  await assertFails(
+    updateDoc(doc(alice, "couples/game-couple/matches/match"), {
+      winnerUid: "alice",
+    }),
+  );
+  await assertFails(
+    setDoc(doc(alice, "couples/game-couple/matches/match/moves/forged"), {
+      cell: 0,
+    }),
+  );
+  await environment.withSecurityRulesDisabled(async (context) =>
+    updateDoc(doc(context.firestore(), "couples/game-couple"), {
+      status: "closed",
+    }),
+  );
+  await assertFails(getDoc(doc(bob, "couples/game-couple/matches/match")));
+});
+
 test("email/password identity persists a private profile across sign-out/sign-in", async () => {
   const app = initializeApp(
     { projectId, apiKey: "fake-emulator-api-key" },

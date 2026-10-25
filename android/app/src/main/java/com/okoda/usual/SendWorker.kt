@@ -60,7 +60,7 @@ class SendWorker(context: Context, parameters: WorkerParameters) : CoroutineWork
             if (value.path != null) { args["uploadId"] = id; args["sha256"] = value.sha256 }
             val op = when {
                 value.kind == "AVATAR" -> "profile.avatar"
-                value.gameId != null -> { args["matchId"] = value.gameId; "game.draw" }
+                value.gameId != null -> { args["matchId"] = value.gameId; args["expectedVersion"] = value.gameVersion ?: throw UserFacingException("Reopen this game to create a new drawing."); "game.draw" }
                 else -> { args["kind"] = value.kind; args["caption"] = value.caption; "content.send" }
             }
             app.backend.call(op, args, requestId = id, expectedUid = value.uid)

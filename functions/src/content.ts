@@ -44,12 +44,14 @@ export function event(
   coupleId: string,
   kind: string,
   resourceId: string,
+  resourceVersion: number | null = null,
 ): void {
   tx.create(db.doc("deliveryEvents/" + id), {
     recipientUid,
     coupleId,
     kind,
     resourceId,
+    resourceVersion,
     state: "pending",
     attempts: 0,
     createdAt: now(),

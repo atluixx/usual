@@ -56,9 +56,10 @@ class MainActivity : ComponentActivity() {
             val model = viewModel { UsualViewModel(repository) }
             val coupleModel = viewModel { CoupleViewModel(repository, couples) }
             val mediaModel = viewModel { MediaViewModel(application as UsualApplication, coupleModel.state) }
+            val gameModel = viewModel { GameViewModel((application as UsualApplication).backend, coupleModel.state) }
             val state by model.state.collectAsStateWithLifecycle()
             MaterialTheme {
-                UsualScreen(state, model, coupleModel, mediaModel, (application as UsualApplication).media, acquireGoogleToken = { googleIdToken(this) }, onSignOut = {
+                UsualScreen(state, model, coupleModel, mediaModel, gameModel, (application as UsualApplication).media, acquireGoogleToken = { googleIdToken(this) }, onSignOut = {
                     model.signOut()
                     lifecycleScope.launch { clearGoogleCredentialState(this@MainActivity) }
                 })
@@ -73,6 +74,7 @@ private fun UsualScreen(
     model: UsualViewModel,
     coupleModel: CoupleViewModel,
     mediaModel: MediaViewModel,
+    gameModel: GameViewModel,
     media: MediaRepository,
     acquireGoogleToken: suspend () -> String,
     onSignOut: () -> Unit,
@@ -82,8 +84,8 @@ private fun UsualScreen(
     val pending by mediaModel.outbox.collectAsStateWithLifecycle()
     Scaffold(bottomBar = {
         if (state.account != null) NavigationBar {
-            listOf("Connect", "Memories", "Settings").forEach { destination ->
-                NavigationBarItem(selected = tab == destination, onClick = { tab = destination }, icon = { Text(when (destination) { "Connect" -> "♡"; "Memories" -> "▧"; else -> "⚙" }) }, label = { Text(destination) })
+            listOf("Connect", "Play", "Memories", "Settings").forEach { destination ->
+                NavigationBarItem(selected = tab == destination, onClick = { tab = destination }, icon = { Text(when (destination) { "Connect" -> "♡"; "Play" -> "○"; "Memories" -> "▧"; else -> "⚙" }) }, label = { Text(destination) })
             }
         }
     }) { insets ->
@@ -102,6 +104,7 @@ private fun UsualScreen(
                 }
             } else Box(Modifier.weight(1f)) {
                 when (tab) {
+                    "Play" -> GamesScreen(gameModel, mediaModel, media)
                     "Memories" -> GalleryScreen(mediaModel, media)
                     "Settings" -> Column(Modifier.verticalScroll(rememberScrollState())) {
                         ProfileForm(account, state, model, acquireGoogleToken, onSignOut)

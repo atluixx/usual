@@ -88,6 +88,18 @@ service cloud.firestore {
           && request.query.limit != null && request.query.limit <= 20;
         allow write: if false;
       }
+      match /matches/{matchId} {
+        allow get: if isCoupleMember(coupleId);
+        allow list: if isCoupleMember(coupleId)
+          && request.query.limit != null && request.query.limit <= 20;
+        allow write: if false;
+        match /moves/{moveId} {
+          allow get: if isCoupleMember(coupleId);
+          allow list: if isCoupleMember(coupleId)
+            && request.query.limit != null && request.query.limit <= 20;
+          allow write: if false;
+        }
+      }
     }
 
     match /{document=**} {
