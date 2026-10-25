@@ -39,6 +39,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,14 +51,22 @@ class MainActivity : ComponentActivity() {
             val model = viewModel { UsualViewModel(repository) }
             val state by model.state.collectAsStateWithLifecycle()
             MaterialTheme {
-                UsualScreen(state, model)
+                UsualScreen(state, model, acquireGoogleToken = { googleIdToken(this) }, onSignOut = {
+                    model.signOut()
+                    lifecycleScope.launch { clearGoogleCredentialState(this@MainActivity) }
+                })
             }
         }
     }
 }
 
 @Composable
-private fun UsualScreen(state: UsualUiState, model: UsualViewModel) {
+private fun UsualScreen(
+    state: UsualUiState,
+    model: UsualViewModel,
+    acquireGoogleToken: suspend () -> String,
+    onSignOut: () -> Unit,
+) {
     Scaffold { insets ->
         Column(
             Modifier.fillMaxSize().padding(insets).imePadding()
@@ -69,9 +79,9 @@ private fun UsualScreen(state: UsualUiState, model: UsualViewModel) {
             Spacer(Modifier.height(8.dp))
             val account = state.account
             if (account == null) {
-                SignInForm(state, model)
+                WelcomeForm(state, model, acquireGoogleToken)
             } else {
-                ProfileForm(account, state, model)
+                ProfileForm(account, state, model, acquireGoogleToken, onSignOut)
             }
             if (state.busy) CircularProgressIndicator(Modifier.size(24.dp))
             state.notice?.let { Text(it) }
@@ -80,12 +90,28 @@ private fun UsualScreen(state: UsualUiState, model: UsualViewModel) {
 }
 
 @Composable
+private fun WelcomeForm(state: UsualUiState, model: UsualViewModel, acquireGoogleToken: suspend () -> String) {
+    var legacySignIn by remember { mutableStateOf(false) }
+    Text("Start together", style = MaterialTheme.typography.titleLarge)
+    Text("No email or password needed. You can link Google later if you want to recover your Usual profile on another device.")
+    Button(onClick = model::startGuest, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
+        Text("Continue without an account")
+    }
+    TextButton(onClick = { model.signInGoogle(acquireGoogleToken) }, enabled = !state.busy) {
+        Text("Continue with Google")
+    }
+    TextButton(onClick = { legacySignIn = !legacySignIn }, enabled = !state.busy) {
+        Text(if (legacySignIn) "Hide email sign-in" else "Already have an email account?")
+    }
+    if (legacySignIn) SignInForm(state, model)
+}
+
+@Composable
 private fun SignInForm(state: UsualUiState, model: UsualViewModel) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var creatingAccount by remember { mutableStateOf(false) }
     var showPassword by remember { mutableStateOf(false) }
-    Text(if (creatingAccount) "Create your account" else "Welcome back", style = MaterialTheme.typography.titleLarge)
+    Text("Sign in to your existing account", style = MaterialTheme.typography.titleLarge)
     OutlinedTextField(
         value = email,
         onValueChange = { email = it },
@@ -112,30 +138,29 @@ private fun SignInForm(state: UsualUiState, model: UsualViewModel) {
     )
     Button(
         onClick = {
-            if (creatingAccount) model.signUp(email, password) else model.signIn(email, password)
+            model.signIn(email, password)
             password = ""
         },
         enabled = !state.busy,
         modifier = Modifier.fillMaxWidth(),
-    ) { Text(if (creatingAccount) "Create account" else "Sign in") }
-    TextButton(onClick = { creatingAccount = !creatingAccount; password = "" }, enabled = !state.busy) {
-        Text(if (creatingAccount) "Already have an account? Sign in" else "New to Usual? Create an account")
-    }
+    ) { Text("Sign in") }
     TextButton(onClick = { model.resetPassword(email) }, enabled = !state.busy) { Text("Reset password") }
 }
 
 @Composable
-private fun ProfileForm(account: Account, state: UsualUiState, model: UsualViewModel) {
+private fun ProfileForm(
+    account: Account,
+    state: UsualUiState,
+    model: UsualViewModel,
+    acquireGoogleToken: suspend () -> String,
+    onSignOut: () -> Unit,
+) {
     var displayName by remember(account.uid) { mutableStateOf("") }
     val profile = (state.profile as? ProfileState.Ready)?.profile
     LaunchedEffect(account.uid, profile?.displayName) {
         if (displayName.isEmpty()) displayName = profile?.displayName.orEmpty()
     }
-    Text(account.email.orEmpty(), style = MaterialTheme.typography.titleMedium)
-    Text(if (account.emailVerified) "Email verified" else "Verify your email before pairing becomes available.")
-    if (!account.emailVerified) {
-        TextButton(onClick = model::sendVerification, enabled = !state.busy) { Text("Send verification email") }
-    }
+    Text(if (account.isGuest) "Your guest space" else "Your Usual profile", style = MaterialTheme.typography.titleMedium)
     when (val current = state.profile) {
         ProfileState.Loading -> Text("Loading your private profile…")
         ProfileState.Missing -> Text("Choose a display name to finish your profile.")
@@ -160,6 +185,19 @@ private fun ProfileForm(account: Account, state: UsualUiState, model: UsualViewM
     )
     Button(onClick = { model.saveProfile(displayName) }, enabled = !state.busy) { Text("Save profile") }
     TextButton(onClick = model::refresh, enabled = !state.busy) { Text("Refresh account and profile") }
-    Text("Drawing, pairing, and shared memories are coming in later milestones.")
-    TextButton(onClick = model::signOut) { Text("Sign out") }
+    Text("Google backup is optional. Email verification is not required to use Usual or to pair.")
+    if (account.googleLinked) {
+        Text("Google linked. Use the same Google account to recover this profile on another device.")
+    } else {
+        if (account.isGuest) {
+            Text("Reinstalling or clearing app data may lose access to this guest space. Link Google whenever you want recovery.")
+        }
+        TextButton(onClick = { model.linkGoogle(acquireGoogleToken) }, enabled = !state.busy) {
+            Text("Link Google (optional)")
+        }
+    }
+    Text("Couple pairing and drawing exchange are not available in this build yet.")
+    if (!account.isGuest) {
+        TextButton(onClick = onSignOut, enabled = !state.busy) { Text("Sign out") }
+    }
 }

@@ -1,18 +1,31 @@
 # Firebase connection and profile contract
 
 The owner selected Firebase Authentication and Cloud Firestore, replacing the
-earlier Go/PostgreSQL and guest/Google onboarding decisions. The target project
-is `getusualapp`, Android application ID `com.okoda.usual`, and the requested
-database is Standard edition `(default)` in `southamerica-east1` (São Paulo).
+earlier Go/PostgreSQL backend decision. Guest-first access with optional Google
+linking is the current onboarding decision (#7). The target project is
+`getusualapp`, Android application ID `com.okoda.usual`, and the database is
+Standard edition `(default)` in `southamerica-east1` (São Paulo).
 
 ## Scope and contract
 
-This milestone uses email/password authentication. Firebase Auth owns passwords,
-email addresses, verification, password reset, and session persistence. Never
-write passwords or duplicate email addresses into Firestore, logs, saved
-instance state, or analytics. Sign-up creates an Auth identity first; profile
-setup is separately retryable if its write fails. Existing sessions restore
-through the Firebase SDK.
+The welcome screen offers **Continue without an account**, creating/reusing an
+anonymous Firebase identity. Email, password, verification, and Google linking
+are not required. The Firebase SDK restores the same session on restart. A
+profile write is separately retryable and never creates another identity.
+
+**Link Google (optional)** requests a Google credential through Android
+Credential Manager only after a tap. `linkWithCredential` attaches it to the
+current UID; it must not call `signInWithCredential` as a fallback. Cancellation
+or an already-linked credential leaves the guest and profile unchanged. Google
+sign-in from the welcome screen is a separate explicit recovery action; do not
+silently replace an active guest with another account. Existing email/password
+users retain sign-in/reset support and their existing UID/profile.
+
+Never write credentials/tokens or duplicate email addresses into Firestore,
+logs, saved instance state, or analytics. There is no unlinked-guest sign-out
+UI. Reinstalling/clearing data or losing the device may lose guest access;
+Google linking is an optional recovery method. Do not enable automatic anonymous
+user cleanup: its 30-day deletion would strand valid guest/couple data.
 
 The only client-accessible Firestore path is `users/{auth.uid}`:
 
@@ -28,8 +41,8 @@ Only an authenticated owner may get this exact document. Collection listing,
 deletion, extra fields, subcollections, other users' profiles, and every other
 collection are denied. Both creates and updates validate the full schema. A
 profile confers no couple membership or privileged role. Future pairing requires
-its own trusted transaction and authorization contract; verified email is a
-prerequisite for that future operation.
+its own trusted transaction and authorization contract; anonymous Firebase
+identities are valid participants without email verification or Google linking.
 
 The Android app uses a memory-only Firestore cache for this initial private
 profile and server reads for explicit refreshes. It clears displayed profile
@@ -58,9 +71,9 @@ repository.
 - Verify the remote Android registration, downloaded package/project
   identifiers, email/password provider deployment, database edition/location,
   and rules release.
-- Run local Auth/Firestore emulator tests for successful email/password sign-up,
-  sign-in/sign-out, profile persistence, and denied unauthorized/schema
-  mutations.
+- Run local Auth/Firestore emulator tests for guest creation,
+  identity-preserving Google linking/recovery/collision, legacy email sign-in,
+  private profile persistence, and denied unauthorized/schema mutations.
 - Compile/lint/test the Android app using the pinned Gradle wrapper and SDK.
 - Record device testing separately. A build or web-SDK emulator test does not
   prove that Android UI flows were exercised on a device.
@@ -153,3 +166,50 @@ Its output is
 `android/app/build/outputs/apk/live/release/app-live-release-unsigned.apk`. The
 live debug APK is convenient for local development; use intentional accounts and
 keep diagnostic output private. No production log collection is installed.
+
+## Google provider setup and verification
+
+Anonymous Auth is enabled by `firebase.json` and a real Auth configuration
+deployment. The Google provider additionally needs a public support email, brand
+display name, Android signing SHA-1, and web OAuth client ID. Keep real OAuth
+client configuration in the ignored live `google-services.json`.
+
+To register the certificate used by a build, obtain its SHA-1 with Gradle's
+`./gradlew :app:signingReport` from `android/`, then run:
+
+```sh
+npx -y firebase-tools@latest apps:android:sha:create 1:681468816871:android:611a9aa1625264c96e2142 YOUR_CERTIFICATE_SHA1 --project getusualapp
+```
+
+Enable Google using the Firebase Auth skill's `googleSignIn` provider settings
+and deploy `--only auth --project getusualapp`; then download a fresh SDK
+configuration to a new temporary output path, verify the package/project, and
+replace the ignored live file (the CLI refuses to overwrite an existing `--out`
+file). The generated configuration must include a web OAuth client
+(`client_type: 3`), from which the Google services plugin creates
+`default_web_client_id`. A missing client shows a clear setup error when Google
+is tapped and does not block guest access. Register the actual Play App Signing
+certificate before testing a Play-distributed build; the local debug certificate
+only covers builds signed with this machine's debug keystore.
+
+Real Google account selection requires a live build and Google Play services.
+The emulator flavor disables real Google selection. Auth emulator integration
+tests use emulator-only synthetic Google ID tokens to prove UID preservation,
+profile continuity, collision safety, and recovery. They do not verify the real
+Google OAuth/consent setup. Android state tests cover picker cancellation and
+busy/retry state. Record live Google device testing separately.
+
+The device tester reported “selected page mode is invalid” on the email action
+page. The Android code calls Firebase’s standard `sendEmailVerification` without
+custom action settings; it does not build or rewrite the link. This points to
+the hosted action handler/link rather than a reason to require registration. The
+exact cause is not yet confirmed. Do not request/store the user’s action link or
+one-time code. Removing verification as a product prerequisite does not prove
+that a legacy email link problem was fixed.
+
+On 2026-10-25, Auth deployments enabling anonymous and then Google sign-in both
+succeeded, preserving email/password. The owner selected
+`support@getusual.space` for Google support (the mailbox/domain still needs to
+be made operational). This machine’s debug SHA-1 was registered for the existing
+Android app. No Google OAuth/physical-device test has yet been claimed, and no
+production test users/documents were created by automated tests.

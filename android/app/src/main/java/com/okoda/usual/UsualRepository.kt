@@ -1,6 +1,12 @@
 package com.okoda.usual
 
-data class Account(val uid: String, val email: String?, val emailVerified: Boolean)
+data class Account(
+    val uid: String,
+    val email: String?,
+    val emailVerified: Boolean,
+    val isGuest: Boolean = false,
+    val googleLinked: Boolean = false,
+)
 
 data class Profile(
     val displayName: String,
@@ -20,6 +26,9 @@ class UserFacingException(message: String) : Exception(message)
 interface UsualRepository {
     fun observeAccount(onChanged: (Account?) -> Unit): () -> Unit
     fun observeProfile(uid: String, onChanged: (ProfileState) -> Unit): () -> Unit
+    suspend fun startGuest()
+    suspend fun linkGoogle(uid: String, idToken: String)
+    suspend fun signInGoogle(idToken: String)
     suspend fun signUp(email: String, password: String)
     suspend fun signIn(email: String, password: String)
     suspend fun resetPassword(email: String)

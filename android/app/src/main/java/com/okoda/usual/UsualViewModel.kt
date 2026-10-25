@@ -33,6 +33,24 @@ class UsualViewModel(private val repository: UsualRepository) : ViewModel() {
         }
     }
 
+    fun startGuest() = runAction { repository.startGuest() }
+
+    fun linkGoogle(acquireIdToken: suspend () -> String) {
+        val uid = mutableState.value.account?.uid ?: return
+        if (mutableState.value.account?.googleLinked == true) return
+        runAction {
+            val token = acquireIdToken()
+            if (mutableState.value.account?.uid != uid) return@runAction
+            repository.linkGoogle(uid, token)
+            show("Google linked. Your Usual profile stays the same and can be recovered on another device.")
+        }
+    }
+
+    fun signInGoogle(acquireIdToken: suspend () -> String) {
+        if (mutableState.value.account != null) return
+        runAction { repository.signInGoogle(acquireIdToken()) }
+    }
+
     fun signUp(email: String, password: String) {
         if (!validEmail(email)) return show("Enter a valid email address.")
         if (password.length < 6) return show("Use a password with at least 6 characters.")
@@ -78,6 +96,10 @@ class UsualViewModel(private val repository: UsualRepository) : ViewModel() {
     }
 
     fun signOut() {
+        if (mutableState.value.account?.isGuest == true) {
+            show("Link Google before signing out so you can recover this guest profile.")
+            return
+        }
         actionJob?.cancel()
         repository.signOut()
         mutableState.update { it.copy(busy = false, notice = null) }

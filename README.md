@@ -10,8 +10,8 @@ Early development: an Android authentication and private-profile foundation.
 
 ## Features
 
-- **Account:** Email/password sign-up and sign-in, verification/reset emails,
-  and sign-out.
+- **Access:** Continue without an account; optionally link Google for recovery.
+  Existing email accounts retain sign-in/reset support.
 - **Profile:** A private display name stored in Cloud Firestore.
 - **Planned:** Couple pairing, photo/drawing exchange, memories, widgets, and
   games.

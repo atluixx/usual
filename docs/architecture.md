@@ -1,16 +1,19 @@
 # Architecture: Firebase backend
 
 Status: Firebase Authentication and Cloud Firestore selected by the owner on
-2026-10-25. This explicitly supersedes the earlier Go/PostgreSQL decision and
-the guest/Google onboarding plan. No Go backend was implemented; issue #2 is
+2026-10-25. This explicitly supersedes the earlier Go/PostgreSQL decision for
+the backend. Guest-first access with optional Google linking was restored by the
+owner after device feedback (#7). No Go backend was implemented; issue #2 is
 retired.
 
 ## Current stack
 
 - Android: Kotlin, Jetpack Compose, lifecycle ViewModel/StateFlow, and Firebase
   Android SDKs managed by the Firebase BoM.
-- Identity: Firebase Authentication with email/password, email verification,
-  password reset, and SDK-managed sessions.
+- Identity: anonymous Firebase Authentication for guest-first access, optional
+  Google credential linking/recovery, and SDK-managed sessions. Existing
+  email/password accounts retain an optional sign-in/reset path. No email
+  verification is required for guest use or future pairing.
 - Database: Cloud Firestore Standard edition, `(default)`, São Paulo
   (`southamerica-east1`) in the existing `getusualapp` project.
 - Authorization: version-controlled Firestore Security Rules, strict document

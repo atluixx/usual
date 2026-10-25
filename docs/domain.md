@@ -7,7 +7,8 @@ are denied by the deployed foundation rules.
 
 ## Implemented private profile
 
-Firebase Auth owns identity, email, passwords, and verification. The Firestore
+Firebase Auth owns anonymous identity and optional linked Google credentials.
+Existing email/password credentials also remain managed by Auth. The Firestore
 profile key is the Firebase UID, not a client-generated user ID. Fields are
 `uid`, `displayName`, `createdAt`, `updatedAt`, and `schemaVersion: 1`; see the
 exact [contract](firebase.md). Server timestamps prevent forged ordering. Rules
@@ -51,7 +52,9 @@ Firestore has no SQL foreign keys, uniqueness indexes, or deferred constraint
 triggers. Deny direct client writes to these authoritative documents, validate
 the invariants in trusted code, and test retries/concurrency against the
 emulator. Admin SDK calls bypass rules; functions must check the authenticated
-caller, verified email, current membership, and lifecycle for every operation.
+caller (including anonymous guests), current membership, and lifecycle for every
+operation. Pairing must not require email/password, email verification, or
+Google linking. Linking preserves UID, so future memberships remain attached.
 
 ## Content, memories, and games
 

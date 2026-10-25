@@ -1,10 +1,11 @@
 # Incremental delivery roadmap
 
-The owner now selected Firebase Auth + Firestore and email/password
-authentication. The Go/PostgreSQL and guest/Google proposals are superseded.
-Permanent Android ID: `com.okoda.usual`; project: `getusualapp`; database:
-Standard `(default)` in São Paulo. Shared saved status, deletion for both
-partners, and old-couple deletion on unpair/account deletion remain approved.
+The owner selected Firebase Auth + Firestore, then restored guest-first access
+with optional Google linking (#7). Go/PostgreSQL and mandatory email/password
+onboarding are superseded. Permanent Android ID: `com.okoda.usual`; project:
+`getusualapp`; database: Standard `(default)` in São Paulo. Shared saved status,
+deletion for both partners, and old-couple deletion on unpair/account deletion
+remain approved.
 
 ## Current work
 
@@ -12,10 +13,13 @@ partners, and old-couple deletion on unpair/account deletion remain approved.
   README, contributor workflow, templates, architecture, and least-privilege CI
   in PR #5.
 - [#6 — Firebase Android foundation](https://github.com/atluixx/usual/issues/6):
-  registered Android app, email/password flows, private Firestore profile,
-  prototype Security Rules, emulators, Android build/tests, and updated
-  documents. PR #5 is expanded around this final implementation; no merge is
-  automatic.
+  registered Android app, guest/Google and legacy sign-in flows, private
+  Firestore profile, prototype Security Rules, emulators, Android build/tests,
+  and updated documents. PR #5 is expanded around this final implementation; no
+  merge is automatic.
+- [#7 — Guest-first correction](https://github.com/atluixx/usual/issues/7): no
+  email/password gate, optional Google linking with preserved UID, recovery
+  limits, and updated pairing prerequisites. Included in foundation PR #5.
 - [#2 — Go foundation](https://github.com/atluixx/usual/issues/2): retired, not
   implemented, because the owner chose Firebase.
 
@@ -31,9 +35,9 @@ The goal remains: two people pair, send/receive a drawing, open it from a
 notification and memory widget, and find it in a private chronological gallery.
 Deliver in small issue-linked PRs:
 
-1. Finish the Firebase foundation (#6).
+1. Finish the Firebase foundation and guest-first correction (#6, #7).
 2. [#4 — Trusted Firebase pairing](https://github.com/atluixx/usual/issues/4):
-   contracts, verified accounts, mutual consent, transactional membership,
+   contracts, anonymous guests, mutual consent, transactional membership,
    idempotency, Security Rules, and concurrency/abuse tests.
 3. Scope Android pairing screens after that contract, with loading, error,
    retry, expiry/revocation, and two-installation/restart evidence.

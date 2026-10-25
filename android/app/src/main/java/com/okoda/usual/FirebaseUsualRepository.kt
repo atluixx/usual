@@ -3,10 +3,12 @@ package com.okoda.usual
 import com.google.firebase.FirebaseNetworkException
 import com.google.firebase.FirebaseTooManyRequestsException
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthException
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseAuthWeakPasswordException
+import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
@@ -21,7 +23,10 @@ class FirebaseUsualRepository(
 ) : UsualRepository {
     override fun observeAccount(onChanged: (Account?) -> Unit): () -> Unit {
         val listener = FirebaseAuth.IdTokenListener { firebaseAuth ->
-            onChanged(firebaseAuth.currentUser?.let { Account(it.uid, it.email, it.isEmailVerified) })
+            onChanged(firebaseAuth.currentUser?.let {
+                Account(it.uid, it.email, it.isEmailVerified, it.isAnonymous,
+                    it.providerData.any { provider -> provider.providerId == GoogleAuthProvider.PROVIDER_ID })
+            })
         }
         auth.addIdTokenListener(listener)
         return { auth.removeIdTokenListener(listener) }
@@ -53,12 +58,34 @@ class FirebaseUsualRepository(
         return { listener.remove() }
     }
 
+    override suspend fun startGuest() = safely {
+        // Reuse the SDK session on retries; never replace an existing identity.
+        if (auth.currentUser == null) auth.signInAnonymously().await()
+        Unit
+    }
+
+    override suspend fun linkGoogle(uid: String, idToken: String) = safely {
+        val user = auth.currentUser
+        check(user != null && user.uid == uid)
+        user.linkWithCredential(GoogleAuthProvider.getCredential(idToken, null)).await()
+        user.getIdToken(true).await()
+        Unit
+    }
+
+    override suspend fun signInGoogle(idToken: String) = safely {
+        check(auth.currentUser == null)
+        auth.signInWithCredential(GoogleAuthProvider.getCredential(idToken, null)).await()
+        Unit
+    }
+
     override suspend fun signUp(email: String, password: String) = safely {
+        check(auth.currentUser == null)
         auth.createUserWithEmailAndPassword(email, password).await()
         Unit
     }
 
     override suspend fun signIn(email: String, password: String) = safely {
+        check(auth.currentUser == null)
         auth.signInWithEmailAndPassword(email, password).await()
         Unit
     }
@@ -134,7 +161,12 @@ class FirebaseUsualRepository(
         is FirebaseAuthInvalidCredentialsException, is FirebaseAuthInvalidUserException ->
             "Couldn’t sign in. Check your email and password."
         is FirebaseAuthUserCollisionException ->
-            "Couldn’t create this account. Try signing in or resetting your password."
+            "This sign-in is already used by another Usual account. Your current session and data are unchanged. Accounts were not merged."
+        is FirebaseAuthException -> when (error.errorCode) {
+            "ERROR_OPERATION_NOT_ALLOWED", "ERROR_ADMIN_RESTRICTED_OPERATION" ->
+                "This sign-in option isn’t enabled yet. Please retry after setup is complete."
+            else -> "Couldn’t complete sign-in. Please try again."
+        }
         is FirebaseFirestoreException -> when (error.code) {
             FirebaseFirestoreException.Code.PERMISSION_DENIED ->
                 "Your session can’t access this profile. Try signing in again."

@@ -7,10 +7,21 @@ exist. Only the Auth SDK flows and exact-document profile contract in
 
 ## Current operations
 
-- Create an email/password account through Firebase Auth. Do not retry account
-  creation blindly after an ambiguous failure; offer sign-in/reset instead.
-- Sign in, restore an existing SDK session, sign out, send verification mail,
-  refresh verification state/token, and request a password-reset email.
+- Continue without an account: reuse the SDK session or call anonymous sign-in.
+  Retry only after failure; duplicate taps share one in-flight operation. The
+  invisible Firebase identity still authenticates every protected request.
+- Restore an existing SDK session without asking for credentials.
+- Optionally obtain a Google ID token through Android Credential Manager on an
+  explicit tap. Link it with `currentUser.linkWithCredential`, preserving the
+  UID and document paths. A collision/cancellation/failure leaves the current
+  identity and profile untouched; never fall back to sign-in or merge accounts.
+- Google sign-in from the welcome screen is a separate deliberate action for a
+  linked account on another device (or a new Google-backed identity). It never
+  runs while another identity is active. Sign-out clears Firebase and Credential
+  Manager state; unlinked guests have no destructive sign-out UI.
+- Existing email/password users may sign in/reset their password. Their
+  identities and documents remain intact. Email registration is no longer in
+  onboarding, and verification is no longer a prerequisite for pairing.
 - Read/observe `users/{currentUid}`. Create/update a bounded display name
   through a Firestore transaction, preserving the creation timestamp. No
   collection list.

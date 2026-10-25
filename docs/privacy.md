@@ -7,9 +7,10 @@ implemented; couple/content/game lifecycle operations are future work.
 
 ## Current access
 
-Firebase Auth manages email/password credentials and session tokens. Passwords
-never enter Firestore, logs, saved form state, or analytics. Authentication does
-not grant access to other users' resources.
+Firebase Auth manages anonymous identities, optional Google credentials, legacy
+email/password credentials, and session tokens. Passwords never enter Firestore,
+logs, saved form state, or analytics. Authentication does not grant access to
+other users' resources.
 
 The only allowed Firestore path is the caller's exact `users/{uid}` profile. It
 contains a bounded display name, immutable UID/creation time, server update
@@ -25,10 +26,22 @@ cleared on submission. Auth persists sessions through its own SDK storage, not
 custom token files. Emulator configuration is isolated from live builds and has
 no release variant.
 
-Email verification and reset emails are available. Pairing is not implemented;
-future shared access requires verified identity, current active membership, and
-explicit consent. Google linking and anonymous onboarding are not part of the
-current email/password implementation.
+Guest use asks for no email, password, or verification. Google linking is
+optional and preserves the Firebase UID; Google tokens exist only during the
+credential/link operation and are not stored by app code or copied to Firestore.
+A credential collision never merges/switches accounts. Existing email users
+retain their sign-in/reset path and can also link Google without changing UID.
+
+An unlinked guest may lose access after clearing app data, reinstalling, or
+losing the device. The app explains recovery limits without blocking use. There
+is no guest sign-out action, automatic guest deletion, or automatic Firebase
+anonymous-account cleanup configuration. Anonymous identities must remain valid
+for the same lifetime as their future couple data; do not enable 30-day Auth
+cleanup. Linking Google is recovery, not a copy/export of media to Google Drive.
+
+Pairing remains unimplemented in this build. Its contract must accept two
+distinct anonymous identities with explicit consent and current membership
+checks. Google/email verification must not become a shared-resource access gate.
 
 ## Approved future lifecycle
 

@@ -28,6 +28,115 @@ class UsualViewModelTest {
     fun tearDown() = Dispatchers.resetMain()
 
     @Test
+    fun `guest entry uses no email or verification and duplicate taps reuse the operation`() = runTest(dispatcher) {
+        val repository = FakeRepository()
+        repository.gate = CompletableDeferred()
+        val model = UsualViewModel(repository)
+        model.startGuest()
+        model.startGuest()
+        testScheduler.runCurrent()
+        assertEquals(1, repository.guestCount)
+        repository.gate?.complete(Unit)
+        advanceUntilIdle()
+        assertTrue(model.state.value.account!!.isGuest)
+        assertEquals(0, repository.signInCount)
+        assertEquals(0, repository.signUpCount)
+    }
+
+    @Test
+    fun `guest connection failure can retry without requesting credentials`() = runTest(dispatcher) {
+        val repository = FakeRepository()
+        val model = UsualViewModel(repository)
+        repository.failNext = true
+        model.startGuest()
+        advanceUntilIdle()
+        assertNull(model.state.value.account)
+        assertFalse(model.state.value.busy)
+        model.startGuest()
+        advanceUntilIdle()
+        assertTrue(model.state.value.account!!.isGuest)
+        model.saveProfile("Guest")
+        advanceUntilIdle()
+        assertEquals("Guest", repository.savedName)
+    }
+
+    @Test
+    fun `Google linking keeps guest UID profile and subscription`() = runTest(dispatcher) {
+        val repository = FakeRepository()
+        val model = UsualViewModel(repository)
+        repository.emit(Account("guest", null, false, isGuest = true))
+        repository.profileObserver?.invoke(ProfileState.Ready(Profile("Guest's name")))
+        model.linkGoogle { "test-token" }
+        advanceUntilIdle()
+        assertEquals("guest", model.state.value.account?.uid)
+        assertTrue(model.state.value.account!!.googleLinked)
+        assertFalse(model.state.value.account!!.isGuest)
+        assertEquals(ProfileState.Ready(Profile("Guest's name")), model.state.value.profile)
+        assertEquals(0, repository.stoppedProfiles)
+        assertEquals(0, repository.signInGoogleCount)
+    }
+
+    @Test
+    fun `Google collision or picker cancellation keeps the existing guest and allows retry`() = runTest(dispatcher) {
+        val repository = FakeRepository()
+        val model = UsualViewModel(repository)
+        val guest = Account("guest", null, false, isGuest = true)
+        repository.emit(guest)
+        repository.profileObserver?.invoke(ProfileState.Ready(Profile("Private")))
+        model.linkGoogle { throw UserFacingException("Cancelled") }
+        advanceUntilIdle()
+        assertEquals(0, repository.linkCount)
+        repository.failNext = true
+        model.linkGoogle { "test-token" }
+        advanceUntilIdle()
+        assertEquals(guest, model.state.value.account)
+        assertEquals(ProfileState.Ready(Profile("Private")), model.state.value.profile)
+        assertFalse(model.state.value.busy)
+        model.linkGoogle { "test-token" }
+        advanceUntilIdle()
+        assertTrue(model.state.value.account!!.googleLinked)
+    }
+
+    @Test
+    fun `restored guest needs no new sign in and cannot accidentally sign out`() = runTest(dispatcher) {
+        val guest = Account("guest", null, false, isGuest = true)
+        val repository = FakeRepository(initialAccount = guest)
+        val model = UsualViewModel(repository)
+        advanceUntilIdle()
+        assertEquals(guest, model.state.value.account)
+        assertEquals(0, repository.guestCount)
+        model.signOut()
+        assertEquals(guest, model.state.value.account)
+        assertNotNull(model.state.value.notice)
+    }
+
+    @Test
+    fun `late Google picker result cannot link a different current user`() = runTest(dispatcher) {
+        val repository = FakeRepository()
+        val model = UsualViewModel(repository)
+        repository.emit(Account("guest", null, false, isGuest = true))
+        val token = CompletableDeferred<String>()
+        model.linkGoogle { token.await() }
+        testScheduler.runCurrent()
+        repository.emit(Account("different", null, false, isGuest = true))
+        token.complete("test-token")
+        advanceUntilIdle()
+        assertEquals(0, repository.linkCount)
+        assertEquals("different", model.state.value.account?.uid)
+    }
+
+    @Test
+    fun `Google sign in never replaces an active guest`() = runTest(dispatcher) {
+        val repository = FakeRepository()
+        val model = UsualViewModel(repository)
+        repository.emit(Account("guest", null, false, isGuest = true))
+        model.signInGoogle { error("Picker should not open") }
+        advanceUntilIdle()
+        assertEquals(0, repository.signInGoogleCount)
+        assertEquals("guest", model.state.value.account?.uid)
+    }
+
+    @Test
     fun `invalid input never submits credentials`() = runTest(dispatcher) {
         val repository = FakeRepository()
         val model = UsualViewModel(repository)
@@ -110,21 +219,28 @@ class UsualViewModelTest {
         assertNotNull(model.state.value.notice)
     }
 
-    private class FakeRepository : UsualRepository {
+    private class FakeRepository(private val initialAccount: Account? = null) : UsualRepository {
         var observer: (Account?) -> Unit = {}
+        private var account: Account? = initialAccount
         var profileObserver: ((ProfileState) -> Unit)? = null
         var signInCount = 0
         var signUpCount = 0
+        var guestCount = 0
+        var linkCount = 0
+        var signInGoogleCount = 0
         var stoppedProfiles = 0
         var failNext = false
         var savedName: String? = null
         var gate: CompletableDeferred<Unit>? = null
 
-        fun emit(account: Account?) = observer(account)
+        fun emit(value: Account?) {
+            account = value
+            observer(value)
+        }
 
         override fun observeAccount(onChanged: (Account?) -> Unit): () -> Unit {
             observer = onChanged
-            onChanged(null)
+            onChanged(initialAccount)
             return {}
         }
 
@@ -137,6 +253,26 @@ class UsualViewModelTest {
             signUpCount++
             failIfRequested()
             emit(Account("alice", email, false))
+        }
+
+        override suspend fun startGuest() {
+            guestCount++
+            gate?.await()
+            failIfRequested()
+            if (account == null) emit(Account("guest", null, false, isGuest = true))
+        }
+
+        override suspend fun linkGoogle(uid: String, idToken: String) {
+            linkCount++
+            failIfRequested()
+            check(account?.uid == uid)
+            emit(account!!.copy(isGuest = false, googleLinked = true))
+        }
+
+        override suspend fun signInGoogle(idToken: String) {
+            signInGoogleCount++
+            failIfRequested()
+            emit(Account("restored", "restored@example.test", true, googleLinked = true))
         }
 
         override suspend fun signIn(email: String, password: String) {

@@ -55,3 +55,11 @@ email/password authentication instead of Go/PostgreSQL and guest/Google
 onboarding. Issue #6 tracks the Android/Firebase implementation in the expanded
 PR #5. Current setup is in [Firebase documentation](firebase.md); the original
 audit above remains a record of what was inspected before changes.
+
+## Guest-first correction
+
+After testing the APK, the owner restored the earlier guest-first decision in
+issue #7: anonymous Firebase identities, optional Google linking/recovery, and
+no email verification gate for pairing. Existing email identities remain valid.
+The preceding audit/follow-up describe their historical milestones; current
+behavior and configuration are documented in [firebase.md](firebase.md).

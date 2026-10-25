@@ -11,9 +11,13 @@ import {
   connectAuthEmulator,
   createUserWithEmailAndPassword,
   getAuth,
+  GoogleAuthProvider,
+  linkWithCredential,
   sendPasswordResetEmail,
   sendEmailVerification,
   signInWithEmailAndPassword,
+  signInAnonymously,
+  signInWithCredential,
   signOut,
 } from "firebase/auth";
 import {
@@ -223,5 +227,131 @@ test("email/password identity persists a private profile across sign-out/sign-in
   } finally {
     await signOut(auth);
     await deleteApp(app);
+  }
+});
+
+// Unsigned ID tokens are accepted ONLY by the Auth emulator. This never proves
+// that a real Android Google account chooser/OAuth configuration works.
+const emulatorGoogleCredential = (subject) => {
+  const encode = (value) =>
+    Buffer.from(JSON.stringify(value)).toString("base64url");
+  const token = `${encode({ alg: "none", typ: "JWT" })}.${encode({
+    sub: subject,
+    iss: "https://accounts.google.com",
+    aud: "unused-emulator-client",
+    email: `${subject}@example.test`,
+    email_verified: true,
+    iat: Math.floor(Date.now() / 1000),
+    exp: Math.floor(Date.now() / 1000) + 3600,
+  })}.`;
+  return GoogleAuthProvider.credential(token);
+};
+
+const guestClient = (name) => {
+  const app = initializeApp(
+    { projectId, apiKey: "fake-emulator-api-key" },
+    name,
+  );
+  const auth = getAuth(app);
+  connectAuthEmulator(
+    auth,
+    `http://${process.env.FIREBASE_AUTH_EMULATOR_HOST}`,
+    {
+      disableWarnings: true,
+    },
+  );
+  const database = getFirestore(app);
+  const [host, port] = process.env.FIRESTORE_EMULATOR_HOST.split(":");
+  connectFirestoreEmulator(database, host, Number(port));
+  return { app, auth, database };
+};
+
+test("anonymous guests reuse their identity and can save only their own private profile", async () => {
+  const { app, auth, database } = guestClient("guest-private-profile");
+  try {
+    const first = await signInAnonymously(auth);
+    assert.equal(first.user.isAnonymous, true);
+    assert.equal(first.user.email, null);
+    assert.equal(first.user.emailVerified, false);
+    const uid = first.user.uid;
+    const reference = doc(database, `users/${uid}`);
+    await assertSucceeds(setDoc(reference, profile(uid)));
+    assert.equal((await signInAnonymously(auth)).user.uid, uid);
+    assert.equal(
+      (await getDocFromServer(reference)).data().displayName,
+      "Alice",
+    );
+    await assertFails(getDocs(collection(database, "users")));
+    await assertFails(
+      setDoc(doc(database, "users/someone-else"), profile("someone-else")),
+    );
+    await assertFails(
+      setDoc(doc(database, "couples/forged"), {
+        members: [uid, "someone-else"],
+      }),
+    );
+    const stranger = environment
+      .authenticatedContext("other-guest", {
+        firebase: { sign_in_provider: "anonymous" },
+      })
+      .firestore();
+    await assertFails(getDoc(doc(stranger, `users/${uid}`)));
+  } finally {
+    await signOut(auth);
+    await deleteApp(app);
+  }
+});
+
+test("Google link preserves guest UID and profile; recovery works and a collision keeps another guest", async () => {
+  const first = guestClient("guest-google-link");
+  const second = guestClient("guest-google-collision");
+  try {
+    const guest = await signInAnonymously(first.auth);
+    const uid = guest.user.uid;
+    const reference = doc(first.database, `users/${uid}`);
+    await setDoc(reference, profile(uid));
+    const credential = emulatorGoogleCredential(
+      `google-${crypto.randomUUID()}`,
+    );
+    const linked = await linkWithCredential(guest.user, credential);
+    assert.equal(linked.user.uid, uid);
+    assert.equal(linked.user.isAnonymous, false);
+    assert.ok(
+      linked.user.providerData.some(
+        (provider) => provider.providerId === "google.com",
+      ),
+    );
+    assert.equal(
+      (await getDocFromServer(reference)).data().displayName,
+      "Alice",
+    );
+    await signOut(first.auth);
+    const recovered = await signInWithCredential(first.auth, credential);
+    assert.equal(recovered.user.uid, uid);
+    assert.equal(
+      (await getDocFromServer(reference)).data().displayName,
+      "Alice",
+    );
+
+    const other = await signInAnonymously(second.auth);
+    const otherUid = other.user.uid;
+    const otherReference = doc(second.database, `users/${otherUid}`);
+    await setDoc(
+      otherReference,
+      profile(otherUid, { displayName: "Other guest" }),
+    );
+    await assert.rejects(linkWithCredential(other.user, credential), {
+      code: "auth/credential-already-in-use",
+    });
+    assert.equal(second.auth.currentUser.uid, otherUid);
+    assert.equal(second.auth.currentUser.isAnonymous, true);
+    assert.equal(
+      (await getDocFromServer(otherReference)).data().displayName,
+      "Other guest",
+    );
+    await assertFails(getDocFromServer(doc(second.database, `users/${uid}`)));
+  } finally {
+    await Promise.all([signOut(first.auth), signOut(second.auth)]);
+    await Promise.all([deleteApp(first.app), deleteApp(second.app)]);
   }
 });
