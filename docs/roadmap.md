@@ -6,10 +6,14 @@ linking supersedes mandatory email onboarding and the earlier Go proposal. The
 live Android ID is permanently `com.okoda.usual`. Shared saves, deletion for
 both, and old-couple deletion after unpair/account deletion are approved.
 
-## Review stack
+## Integration sequence
 
-All implementation is on issue branches, never pushed to `main`. A human merges
-these open dependent PRs in order, retargeting/rebasing each layer as needed:
+Implementation is committed on issue branches and reaches `main` through the
+following milestone PRs. On 2026-10-25 the owner authorized gradual merging and
+closure of completed issues. Merge commits preserve the original commits and
+stack ancestry. Each next PR targets `main` after its predecessor merges; the
+resulting `main` CI must pass before the next milestone lands. GitHub records
+the merge state and timestamps for each PR:
 
 | Issues     | Pull request                                    | Scope                                                          |
 | ---------- | ----------------------------------------------- | -------------------------------------------------------------- |
@@ -30,8 +34,10 @@ Code presence is not acceptance evidence. The backend suite currently has 24
 passing emulator tests; Auth/Firestore rules 16; Storage rules 3; actual
 Firebase callable/Storage/Firestore SDK integration 3; Android state/deep-link
 units 14. The SDK integration includes live match snapshots and reconnect
-recovery. CI on PRs #5/#12/#13/#14/#15 passed their relevant checks. Later
-changes need their own checks; see the final verification record when available.
+recovery. All six implementation PRs passed their applicable checks. The final
+integration also applies the deterministic Auth revocation test fix to the
+pairing milestone before it lands, so intermediate `main` builds include that
+correction. See [verification](verification.md) and each PR for check results.
 
 A live-project smoke test used two deliberately created, agent-owned anonymous
 identities and synthetic media. It proved mutual pairing, private drawing
@@ -64,9 +70,9 @@ live FCM notification display/tap on an optimized APK.
 
 ## External-testing prerequisites
 
-The integrated Android pass is recorded in [verification](verification.md); live
-FCM and final release results are being recorded. A read-only provider check
-confirmed seven-day Storage soft-delete retention, no versioning, disabled
+The integrated Android pass, live FCM display/tap and final R8 APK/AAB builds
+passed as recorded in [verification](verification.md). A read-only provider
+check confirmed seven-day Storage soft-delete retention, no versioning, disabled
 Firestore PITR and no backup schedules. No backup restore has been tested. A
 server cannot recall already downloaded screenshots or an offline launcher's
 retained pixels; preview opt-in explains that limit. Google chooser/real-account
@@ -77,4 +83,4 @@ CI uses pinned dependencies, read-only GitHub permissions, dummy `demo-usual`
 configuration and no production secrets. Android checks compile/lint/unit-test
 API 36, plus default/custom/invalid APK branding. No workflow merges, deploys
 production, signs releases, or bypasses branch protection. A maintainer should
-configure required PR reviews/checks on GitHub before merging.
+configure required PR reviews/checks to enforce this workflow on GitHub.
