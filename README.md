@@ -13,8 +13,9 @@ Early development: an Android authentication and private-profile foundation.
 - **Access:** Continue without an account; optionally link Google for recovery.
   Existing email accounts retain sign-in/reset support.
 - **Profile:** A private display name stored in Cloud Firestore.
-- **Planned:** Couple pairing, photo/drawing exchange, memories, widgets, and
-  games.
+- **Together:** Private pairing codes, confirmation by both people, unpairing,
+  and identity deletion.
+- **Planned:** Photo/drawing exchange, memories, widgets, and games.
 
 See the [roadmap](docs/roadmap.md) for feature and verification status.
 

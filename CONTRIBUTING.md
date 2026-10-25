@@ -1,8 +1,9 @@
 # Contributing to Usual
 
-Usual uses Kotlin/Compose on Android and Firebase Authentication/Cloud
-Firestore. There is no Go/PostgreSQL backend. Pairing, media, widgets, and games
-are future milestones. No release or license has been selected.
+Usual uses Kotlin/Compose on Android and Firebase Authentication/Cloud Firestore
+with trusted TypeScript Cloud Functions. There is no Go/PostgreSQL backend.
+Media, widgets, and games follow pairing as separate milestones. No release or
+license has been selected.
 
 ## Local checks
 
@@ -16,6 +17,8 @@ From the repository root:
 npm ci --ignore-scripts
 npm run check
 npm run test:firebase
+npm ci --ignore-scripts --prefix functions
+npm run test:backend
 ```
 
 The first check formats/lints supported Markdown/JSON/YAML/JavaScript files. It
@@ -96,3 +99,14 @@ errors, credentials, request bodies, or private user data. See
 - [Branding](docs/branding.md): build-time branding is still a separate task.
 - [Roadmap](docs/roadmap.md): issues, milestones, remaining decisions, and
   evidence.
+
+## Trusted operations
+
+See [the MVP operation contract](docs/mvp-contract.md). Callable functions live
+in one codebase under functions/, with a Node 22 deployment runtime and separate
+lockfile. Development tooling uses Node 24; backend CI also compiles/tests under
+Node 22. The API checks revoked Auth identities and authorizes every Admin SDK
+operation, since Admin bypasses Security Rules. No invite codes/request bodies
+or raw SDK errors are logged. Run callable integration tests with Auth,
+Firestore, and Functions emulators and GCLOUD_PROJECT=demo-usual. Never enable
+emulator trust in a live project.

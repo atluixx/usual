@@ -27,7 +27,7 @@ UI. Reinstalling/clearing data or losing the device may lose guest access;
 Google linking is an optional recovery method. Do not enable automatic anonymous
 user cleanup: its 30-day deletion would strand valid guest/couple data.
 
-The only client-accessible Firestore path is `users/{auth.uid}`:
+The owner-private profile path is `users/{auth.uid}`:
 
 | Field           | Contract                                                                  |
 | --------------- | ------------------------------------------------------------------------- |
@@ -38,18 +38,20 @@ The only client-accessible Firestore path is `users/{auth.uid}`:
 | `schemaVersion` | Required integer `1`; immutable                                           |
 
 Only an authenticated owner may get this exact document. Collection listing,
-deletion, extra fields, subcollections, other users' profiles, and every other
-collection are denied. Both creates and updates validate the full schema. A
-profile confers no couple membership or privileged role. Future pairing requires
-its own trusted transaction and authorization contract; anonymous Firebase
-identities are valid participants without email verification or Google linking.
+deletion, extra fields, subcollections, other users' profiles, and undefined
+collections are denied. Both creates and updates validate the full schema. A
+profile confers no couple membership or privileged role.
+[Trusted pairing operations](mvp-contract.md) own invitations, exact-two-person
+couples, unpairing and account deletion. Anonymous participants require no email
+verification or Google linking. Own pairing state, participant invitations and
+current active couples have narrowly scoped exact-document reads.
 
 The Android app uses a memory-only Firestore cache for this initial private
 profile and server reads for explicit refreshes. It clears displayed profile
 state and listeners when the authenticated identity changes. No persistent
-private-media or offline gallery cache is introduced here. Account deletion and
-couple data cleanup remain future work; direct client profile deletion is
-intentionally denied.
+private-media or offline gallery cache is introduced here. Identity deletion and
+couple cleanup use trusted operations and durable jobs; direct client profile
+deletion remains denied.
 
 ## Environments
 
@@ -213,3 +215,16 @@ succeeded, preserving email/password. The owner selected
 be made operational). This machine’s debug SHA-1 was registered for the existing
 Android app. No Google OAuth/physical-device test has yet been claimed, and no
 production test users/documents were created by automated tests.
+
+## Trusted pairing
+
+Build Functions with npm ci --ignore-scripts --prefix functions followed by npm
+--prefix functions run build. Start local Auth/Firestore/Functions emulators
+with npx -y firebase-tools@latest emulators:start --project demo-usual --only
+auth,firestore,functions. The Android emulator flavor uses Functions port 5001.
+The API region is southamerica-east1. Node 22 is the deployment runtime; backend
+CI validates it. Auth user-delete triggers use the same idempotent lifecycle
+path as explicit deletion. Maintenance expires invitations and retries bounded
+cleanup every five minutes. Production deployment is separate from local test
+results; record the actual result rather than treating compilation as
+deployment.

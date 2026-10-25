@@ -4,10 +4,17 @@ rules_version = '2';
 // uid (owner, immutable), displayName (nonblank, <=80), createdAt (immutable
 // server timestamp), updatedAt (server timestamp), and schemaVersion (1).
 // No email/password, membership, roles, media, or game data is client-writable.
+// accounts/{uid}: server tombstone blocks stale tokens after deletion.
+// pairing/{uid}: server-only status, invitationId, coupleId, updatedAt.
+// invitations/{sha256(code)}: creator/claimant IDs and bounded names, status,
+// timestamps, expiry and accepted coupleId. Exact reads by participants only.
+// couples/{id}: server-only status, exactly two distinct memberUids and names.
 service cloud.firestore {
   match /databases/{database}/documents {
     function isAuthenticated() {
-      return request.auth != null;
+      return request.auth != null
+        && (!exists(/databases/$(database)/documents/accounts/$(request.auth.uid))
+          || get(/databases/$(database)/documents/accounts/$(request.auth.uid)).data.state == 'active');
     }
 
     function isOwner(userId) {
@@ -46,6 +53,35 @@ service cloud.firestore {
         && uidNotModified()
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['displayName', 'updatedAt']);
+    }
+
+    function isCoupleMember(coupleId) {
+      return isAuthenticated() && validCoupleMembership(coupleId);
+    }
+
+    function validCoupleMembership(coupleId) {
+      let couple = get(/databases/$(database)/documents/couples/$(coupleId)).data;
+      return get(/databases/$(database)/documents/pairing/$(request.auth.uid)).data.coupleId == coupleId
+        && couple.status == 'active'
+        && couple.memberUids is list && couple.memberUids.size() == 2
+        && couple.memberUids[0] is string && couple.memberUids[1] is string
+        && couple.memberUids[0] != couple.memberUids[1]
+        && request.auth.uid in couple.memberUids;
+    }
+
+    match /pairing/{userId} {
+      allow get: if isOwner(userId);
+      allow list, write: if false;
+    }
+    match /invitations/{invitationId} {
+      allow get: if isAuthenticated()
+        && (resource.data.creatorUid == request.auth.uid
+          || resource.data.claimantUid == request.auth.uid);
+      allow list, write: if false;
+    }
+    match /couples/{coupleId} {
+      allow get: if isCoupleMember(coupleId);
+      allow list, write: if false;
     }
 
     match /{document=**} {

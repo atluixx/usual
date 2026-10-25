@@ -49,3 +49,6 @@ android/captures/
 
 # Keep the Gradle wrapper reproducible when it is introduced
 !gradle-wrapper.jar
+
+# Firebase functions output
+functions/lib/

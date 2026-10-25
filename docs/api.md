@@ -2,8 +2,9 @@
 
 Usual now uses Firebase Authentication and Firestore instead of the earlier Go
 REST and WebSocket proposal. No `/v1` REST endpoints or custom socket protocol
-exist. Only the Auth SDK flows and exact-document profile contract in
-[docs/firebase.md](firebase.md) are implemented in this foundation.
+exist. The Auth SDK flows, trusted
+[pairing/lifecycle operations](mvp-contract.md), and exact-document profile
+contract in [docs/firebase.md](firebase.md) are implemented.
 
 ## Current operations
 
