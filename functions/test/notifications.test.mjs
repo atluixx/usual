@@ -116,6 +116,14 @@ test("old game versions, disabled preferences and unpairing suppress delayed not
     caption: "A moment",
   });
   await call("alice", "pair.end", { coupleId, confirm: true });
+  assert.equal(
+    (await db.doc("preferences/bob").get()).data().widgetPreview,
+    false,
+  );
+  assert.equal(
+    (await db.doc("preferences/alice").get()).data().widgetPreview,
+    false,
+  );
   await dispatch(item.contentId, async () => {
     throw new Error("must not send");
   });

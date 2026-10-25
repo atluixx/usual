@@ -47,3 +47,12 @@ the new identity. See the
 [Android API](https://firebase.google.com/docs/reference/android/com/google/firebase/messaging/FirebaseMessaging)
 and
 [Admin send API](https://firebase.google.com/docs/cloud-messaging/send/admin-sdk).
+
+Unpairing/account deletion resets memory-preview preference for both former
+members in the revocation transaction. A new couple needs a fresh preview
+opt-in; other notification choices remain user-owned. Cached pairing snapshots
+retain the last server-confirmed membership during a temporary network outage.
+The observer keeps its child subscription on metadata-only changes, avoiding
+false revocation caused by eager memory-cache eviction. A server denial still
+clears access. Fresh process startup must obtain server confirmation before
+opening shared UI; already queued owner-bound sends can survive that restart.
