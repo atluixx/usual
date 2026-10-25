@@ -85,3 +85,11 @@ identity-linking tests do not prove the OAuth consent configuration. No Play
 upload, production release signing, physical-device matrix, provider
 physical-erasure audit or backup restore has been performed. No license has been
 selected.
+
+The final CI rerun exposed a timing flaw in the callable revocation test: a new
+sign-in and revocation could land in the same second. Firebase compares
+`auth_time` with `tokensValidAfterTime`; the test now waits for the next second
+and asserts the revocation timestamp is strictly later before requiring denial.
+Production verification still uses `verifyIdToken(token, true)`; no
+authorization check was relaxed. See
+[Firebase session management](https://firebase.google.com/docs/auth/admin/manage-sessions).
