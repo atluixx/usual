@@ -1,7 +1,8 @@
 {
   "project_info": {
     "project_number": "123456789012",
-    "project_id": "demo-usual"
+    "project_id": "demo-usual",
+    "storage_bucket": "demo-usual.firebasestorage.app"
   },
   "client": [
     {
@@ -11,7 +12,24 @@
           "package_name": "com.okoda.usual.emulator"
         }
       },
-      "api_key": [{ "current_key": "fake-emulator-api-key" }]
+      "api_key": [
+        {
+          "current_key": "fake-emulator-api-key"
+        }
+      ]
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:123456789012:android:0123456789abcdef012346",
+        "android_client_info": {
+          "package_name": "com.okoda.usual.emulator.partner"
+        }
+      },
+      "api_key": [
+        {
+          "current_key": "fake-emulator-api-key"
+        }
+      ]
     }
   ],
   "configuration_version": "1"

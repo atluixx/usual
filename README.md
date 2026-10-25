@@ -15,7 +15,10 @@ Early development: an Android authentication and private-profile foundation.
 - **Profile:** A private display name stored in Cloud Firestore.
 - **Together:** Private pairing codes, confirmation by both people, unpairing,
   and identity deletion.
-- **Planned:** Photo/drawing exchange, memories, widgets, and games.
+- **Connect:** Private photos, drawings, short messages, reactions, and
+  retryable sends.
+- **Remember:** Shared history, saved memories, details, and deletion for both.
+- **Planned:** Widgets, notifications, and games.
 
 See the [roadmap](docs/roadmap.md) for feature and verification status.
 

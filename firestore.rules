@@ -82,6 +82,12 @@ service cloud.firestore {
     match /couples/{coupleId} {
       allow get: if isCoupleMember(coupleId);
       allow list, write: if false;
+      match /content/{contentId} {
+        allow get: if isCoupleMember(coupleId) && resource.data.deleted == false;
+        allow list: if isCoupleMember(coupleId) && resource.data.deleted == false
+          && request.query.limit != null && request.query.limit <= 20;
+        allow write: if false;
+      }
     }
 
     match /{document=**} {

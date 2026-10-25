@@ -1,6 +1,32 @@
 import { getAuth } from "firebase-admin/auth";
 import { Timestamp } from "firebase-admin/firestore";
 import { clearState, db, now, state } from "./core.js";
+import { mediaBucket, sweepOrphans } from "./media.js";
+import { expireUploads, revokeCoupleUploads } from "./uploads.js";
+
+async function deletePrefix(prefix: string): Promise<void> {
+  for (let page = 0; page < 5; page++) {
+    const [files] = await mediaBucket().getFiles({
+      prefix,
+      maxResults: 100,
+      autoPaginate: false,
+    });
+    if (!files.length) return;
+    await Promise.all(
+      files.map((file) => file.delete({ ignoreNotFound: true })),
+    );
+  }
+  if (
+    (
+      await mediaBucket().getFiles({
+        prefix,
+        maxResults: 1,
+        autoPaginate: false,
+      })
+    )[0].length
+  )
+    throw new Error("More media cleanup batches are needed.");
+}
 
 async function redactInvitations(field: string, value: string): Promise<void> {
   for (let page = 0; page < 5; page++) {
@@ -76,6 +102,12 @@ export async function cleanup(): Promise<void> {
     const data = job.data();
     try {
       if (data.kind === "couple") {
+        await revokeCoupleUploads(data.target);
+        if (
+          !process.env.GCLOUD_PROJECT?.startsWith("demo-") ||
+          process.env.FIREBASE_STORAGE_EMULATOR_HOST
+        )
+          await deletePrefix("private/couples/" + data.target + "/");
         await redactInvitations("coupleId", data.target);
         await db.recursiveDelete(db.doc("couples/" + data.target));
       } else if (data.kind === "account") {
@@ -87,12 +119,21 @@ export async function cleanup(): Promise<void> {
         }
         await redactInvitations("creatorUid", data.target);
         await redactInvitations("claimantUid", data.target);
+        if (
+          !process.env.GCLOUD_PROJECT?.startsWith("demo-") ||
+          process.env.FIREBASE_STORAGE_EMULATOR_HOST
+        ) {
+          await deletePrefix("private/users/" + data.target + "/");
+          await deletePrefix("pending/" + data.target + "/");
+        }
         for (const collection of [
           "users",
           "pairing",
           "preferences",
           "operations",
           "limits",
+          "uploads",
+          "avatars",
         ])
           await db.recursiveDelete(db.doc(collection + "/" + data.target));
         await db.doc("accounts/" + data.target).set({
@@ -100,7 +141,11 @@ export async function cleanup(): Promise<void> {
           updatedAt: now(),
           expiresAt: Timestamp.fromMillis(Date.now() + 30 * 86_400_000),
         });
-      }
+      } else if (data.kind === "content" || data.kind === "object") {
+        if (data.path)
+          await mediaBucket().file(data.path).delete({ ignoreNotFound: true });
+        if (data.resourcePath) await db.doc(data.resourcePath).delete();
+      } else throw new Error("Unknown cleanup operation.");
       await job.ref.delete();
     } catch {
       const attempts = (data.attempts || 0) + 1;
@@ -118,4 +163,10 @@ export async function cleanup(): Promise<void> {
     .limit(30)
     .get();
   await Promise.all(expired.docs.map((entry) => entry.ref.delete()));
+  await expireUploads();
+  if (
+    !process.env.GCLOUD_PROJECT?.startsWith("demo-") ||
+    process.env.FIREBASE_STORAGE_EMULATOR_HOST
+  )
+    await sweepOrphans();
 }

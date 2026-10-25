@@ -46,6 +46,7 @@ jobs:
           java-version: "21"
       - run: npm ci --ignore-scripts
       - run: npm run test:firebase
+      - run: npm run test:storage
       - run: npm ci --ignore-scripts --prefix functions
       - run: npm run test:callable
 

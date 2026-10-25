@@ -36,6 +36,7 @@ class CoupleRepository(context: Context, private val database: FirebaseFirestore
         var child: ListenerRegistration? = null
         var generation = 0
         var stopped = false
+        var verified = false
         val listener = database.collection("pairing").document(uid).addSnapshotListener(MetadataChanges.INCLUDE) { document, error ->
             if (stopped) return@addSnapshotListener
             val current = ++generation
@@ -43,9 +44,10 @@ class CoupleRepository(context: Context, private val database: FirebaseFirestore
             child = null
             if (error != null) {
                 changed(CoupleState(status = "failed", error = "Couldn’t load pairing. Connect and refresh."))
-            } else if (document == null || (!document.exists() && document.metadata.isFromCache)) {
+            } else if (document == null || (!verified && document.metadata.isFromCache)) {
                 changed(CoupleState())
             } else {
+                if (!document.metadata.isFromCache) verified = true
                 val coupleId = document.getString("coupleId")
                 val invitationId = document.getString("invitationId")
                 val base = CoupleState(document.getString("status") ?: "unpaired", coupleId, invitationId)

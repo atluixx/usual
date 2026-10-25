@@ -2,8 +2,9 @@
 
 The owner approved shared saved status, deletion for both partners, and deletion
 of old couple data after unpairing/account deletion. The backend is now Firebase
-Auth + Firestore. Only the authentication and private-profile behavior below is
-implemented; couple/content/game lifecycle operations are future work.
+Auth + Firestore. Identity, pairing, content and media lifecycle operations are
+implemented; game and notification/widget invalidation operations follow as
+separate milestones.
 
 ## Current access
 
@@ -121,3 +122,29 @@ invitation IDs, attempt unauthorized listener subscriptions and actions, and
 verify revoked/deleted identities, unpairing during work, stale
 notifications/widgets, durable deletion retries, and restore safety before those
 features are released.
+
+## Implemented media and device cache behavior
+
+Only server-authorized current members can read nondeleted content. Media
+responses require authorization both before and after loading bytes. Processed
+objects have no client Storage permission or permanent public URL. Upload
+permits last 15 minutes, bind owner/checksum/size/kind/couple, and cap
+outstanding uploads at 20 per identity. Server validation rejects other formats,
+oversized/unsafe images and checksum mismatches, then strips metadata by
+re-encoding.
+
+The client uses the Android Photo Picker or an explicitly launched camera,
+copies only its selected image, and previews before sending. Received pixels are
+held in memory. The pending-send outbox is private, atomic, excluded from
+backups and bound to the original UID/couple. UID changes and observed unpairing
+cancel the corresponding work and clear local state; an offline remote deletion
+cannot recall previously downloaded bytes before revalidation. The API checks an
+actor binding to prevent a token change from sending a queued draft as another
+member.
+
+History and saved status remain distinct. Either member saves/unsaves the same
+item; either deletes it for both. Tombstones deny reads immediately and durable
+jobs remove media/documents. Completed content has no automatic expiry. Owner
+avatars remain with their identity after unpairing and are available to a new
+partner only through new active membership; account deletion removes avatars.
+Staging/orphan sweep uses bounded pages and 48-hour cleanup, not history expiry.

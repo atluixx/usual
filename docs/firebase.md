@@ -228,3 +228,20 @@ path as explicit deletion. Maintenance expires invitations and retries bounded
 cleanup every five minutes. Production deployment is separate from local test
 results; record the actual result rather than treating compilation as
 deployment.
+
+## Two local Android installations
+
+The emulator-only Gradle property partnerEmulator=true changes only that test
+client's package to com.okoda.usual.emulator.partner. Build/install one normal
+emulator APK, then run ./gradlew :app:installEmulatorDebug
+-PpartnerEmulator=true from android/ to install the second client on the same
+Android emulator. Both use demo-usual and the same local services, with separate
+Auth/app data. This avoids needing two large Android emulators for couple tests.
+It never changes the live/release application ID and cannot enable an emulator
+release variant.
+
+Private media uses Storage port 9199 as well as Auth/Firestore/Functions. Run
+all four emulators for exchange testing. Live bucket setup is a separate
+one-time Console operation; publishing rules alone does not create a bucket. The
+owner confirmed São Paulo production-mode bucket setup, followed by a successful
+Storage/Firestore rules/index deployment.

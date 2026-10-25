@@ -33,6 +33,10 @@
     "functions": {
       "host": "127.0.0.1",
       "port": 5001
+    },
+    "storage": {
+      "host": "127.0.0.1",
+      "port": 9199
     }
   },
   "functions": [
@@ -43,5 +47,8 @@
       "predeploy": ["npm --prefix \"$RESOURCE_DIR\" run build"],
       "ignore": ["node_modules", ".git", "test", "*.log"]
     }
-  ]
+  ],
+  "storage": {
+    "rules": "storage.rules"
+  }
 }

@@ -35,6 +35,10 @@ import {
   setLogLevel,
   Timestamp,
   updateDoc,
+  query,
+  where,
+  orderBy,
+  limit,
 } from "firebase/firestore";
 
 const projectId = "demo-usual";
@@ -264,6 +268,80 @@ test("account deletion tombstones block stale authenticated tokens", async () =>
     }),
   );
   await assertFails(getDoc(doc(ownerDb(), "pairing/alice")));
+});
+
+test("gallery queries are bounded and exclude deleted data; neither partner can forge content metadata", async () => {
+  await environment.withSecurityRulesDisabled(async (ctx) => {
+    const database = ctx.firestore();
+    await setDoc(doc(database, "pairing/alice"), { coupleId: "shared" });
+    await setDoc(doc(database, "couples/shared"), {
+      status: "active",
+      memberUids: ["alice", "bob"],
+    });
+    await setDoc(doc(database, "couples/shared/content/visible"), {
+      deleted: false,
+      saved: true,
+      createdAt: Timestamp.now(),
+      caption: "Private",
+      senderUid: "bob",
+      receiverUid: "alice",
+    });
+    await setDoc(doc(database, "couples/shared/content/deleted"), {
+      deleted: true,
+      saved: false,
+      createdAt: Timestamp.now(),
+    });
+  });
+  const collectionRef = collection(ownerDb(), "couples/shared/content");
+  await assertSucceeds(
+    getDocs(
+      query(
+        collectionRef,
+        where("deleted", "==", false),
+        orderBy("createdAt", "desc"),
+        limit(20),
+      ),
+    ),
+  );
+  await assertSucceeds(
+    getDocs(
+      query(
+        collectionRef,
+        where("deleted", "==", false),
+        where("saved", "==", true),
+        orderBy("createdAt", "desc"),
+        limit(20),
+      ),
+    ),
+  );
+  await assertFails(getDocs(collectionRef));
+  await assertFails(
+    getDocs(query(collectionRef, where("deleted", "==", false), limit(21))),
+  );
+  await assertFails(getDoc(doc(ownerDb(), "couples/shared/content/deleted")));
+  await assertFails(
+    updateDoc(doc(ownerDb(), "couples/shared/content/visible"), {
+      saved: false,
+    }),
+  );
+  await assertFails(
+    setDoc(doc(ownerDb(), "couples/shared/content/forged"), {
+      deleted: false,
+      senderUid: "bob",
+    }),
+  );
+  await assertFails(
+    getDocs(
+      query(
+        collection(
+          environment.authenticatedContext("stranger").firestore(),
+          "couples/shared/content",
+        ),
+        where("deleted", "==", false),
+        limit(20),
+      ),
+    ),
+  );
 });
 
 test("email/password identity persists a private profile across sign-out/sign-in", async () => {

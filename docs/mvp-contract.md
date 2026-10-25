@@ -60,3 +60,62 @@ code digests remain as anonymous anti-reuse tombstones; cleanup removes names,
 member IDs and couple IDs after unpair/account deletion. There is no code
 lookup/list API. Idempotency records live with the owning identity so very old
 retries cannot duplicate retained content; account cleanup removes them.
+
+## Content and private media
+
+A device uploads at most 4 MiB of JPEG/PNG to pending/uid/uploadId using its
+Firebase identity. The upload includes a SHA-256 metadata field. Only that
+identity can access this temporary object; all private/ objects are denied to
+client SDKs. The trusted finalizer independently checks size, signature, decoded
+format/pixel limits and actual SHA-256, re-encodes to remove metadata, then
+persists one authoritative item plus an outbox event in a transaction. Storage
+writes happen outside retried transaction callbacks; orphan objects are private
+and cleaned later. SDK getDownloadURL and public/signed bearer media URLs are
+not used. Authenticated reads revalidate membership and tombstones after loading
+bytes, before returning bounded base64 media to the client.
+
+- content.send: coupleId, kind (PHOTO, DRAWING or MESSAGE), caption (0–280;
+  nonblank for MESSAGE), and uploadId/sha256 for media. Stable requestId
+  survives upload/network/process retries. The result gives contentId and
+  coupleId.
+- content.media: coupleId, contentId and optional thumbnail boolean; returns
+  mimeType, sha256 and base64 bytes. Deleted/revoked content is denied.
+- content.save: coupleId, contentId, saved boolean. Both may change one shared
+  saved status; no media copy.
+- content.react: coupleId, contentId, reaction (an allowed emoji or empty to
+  remove the caller's reaction). Each member controls their own reaction only.
+- content.delete: coupleId, contentId. Either member tombstones the item for
+  both and queues physical object/document cleanup. No undo or expiration.
+- content.ack: coupleId, ids (at most 20), opened boolean. Only the recipient's
+  eligible items receive received/opened timestamps. Push acceptance is not
+  delivery. The gallery lists at most 20 nondeleted items per page using
+  deleted=false, createdAt descending, and an optional immutable cursor. Saved
+  memory queries additionally constrain saved=true.
+- profile.avatar: uploadId/sha256. Updates the caller's private avatar; partner
+  access requires current active membership. Previous media is queued for
+  cleanup. profile.avatarMedia: ownerUid and optional thumbnail boolean.
+
+Android copies picker/camera/drawing output into private app storage for
+preview. Sending uses an atomic persisted outbox and unique WorkManager work;
+the record freezes owner UID and couple ID. Retries never retarget a new
+partner. Sign-out, unpair and deletion clear local private state and pending
+work. Only upload state persists on disk; received media caches stay in memory.
+Notification and widget visibility defaults are defined in their later delivery
+milestone.
+
+The client includes actorUid as an identity-change guard; the server compares it
+with the verified caller, never uses it to choose the caller. Legacy v1 requests
+may omit it. Outbox RPCs always include it and freeze the original couple ID.
+Before upload, media.authorize creates/renews a 15-minute,
+checksum/size/kind-bound permit. Each identity has at most 20 outstanding
+permits. Storage Rules consult that permit and account tombstone; clients cannot
+mint permits. The worker first checks operation.status, so a completed send can
+recover without re-uploading a consumed ticket. media.discard revokes owner
+staging and queues physical cleanup.
+
+Unpair immediately denies shared reads/finalization. Owner-only in-flight
+staging can remain until its short permit expires or cleanup runs; it cannot be
+published into a closed or different couple. Cleanup revokes those permits and
+queues raw object deletion. A bounded paginated orphan sweep removes abandoned
+objects after 48 hours. This is staging cleanup, not expiration of exchange
+history.
