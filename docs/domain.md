@@ -1,126 +1,81 @@
-# Proposed domain model
+# Firebase domain model
 
-This is a design for review, not an existing schema. Add executable migrations
-and constraint tests before implementing each feature. Shared saved status and
-the destructive content lifecycle were approved on 2026-10-25; exact onboarding
-and pairing mechanics are described in [the roadmap](roadmap.md).
+The owner replaced PostgreSQL with Firestore before product implementation. This
+model preserves the product invariants while making enforcement explicit. Only
+`users/{uid}` is implemented now; all other collections below are proposals and
+are denied by the deployed foundation rules.
 
-## Entities
+## Implemented private profile
 
-Use UUID primary keys, `timestamptz` UTC timestamps, explicit `NOT NULL` rules,
-foreign keys, and checked lifecycle values. Foreign keys default to restricted
-deletion while tombstones are needed; cleanup purges dependent rows in an
-explicit order after external deletion succeeds. Do not derive authorization
-from UUID unpredictability. `created_at`/`updated_at` are explicit where
-mutable.
+Firebase Auth owns identity, email, passwords, and verification. The Firestore
+profile key is the Firebase UID, not a client-generated user ID. Fields are
+`uid`, `displayName`, `createdAt`, `updatedAt`, and `schemaVersion: 1`; see the
+exact [contract](firebase.md). Server timestamps prevent forged ordering. Rules
+enforce owner-only exact-document reads and validated creates/updates, immutable
+UID and creation time, an 80-character name bound, and no extra fields. Clients
+cannot list or delete profiles or add membership/admin fields.
 
-| Entity            | Important columns and constraints                                                                                                                                              |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| User (`app_user`) | UUID; unique `(auth_issuer, auth_subject)`; display name; optional private avatar media reference; notification/widget preferences; active/deletion-pending status; timestamps |
-| Couple            | UUID; `ACTIVE` or `CLOSED`; created/closed timestamps; monotonic access version                                                                                                |
-| CoupleMembership  | Couple/user FKs; slot 1 or 2; joined/left timestamps; unique `(couple_id, user_id)` and `(couple_id, slot)`; partial unique user index for membership with no `left_at`        |
-| CoupleInvitation  | UUID; inviter FK; unique code digest; optional claimed-by FK; pending/claimed/accepted/revoked/expired state; expiry, claim, acceptance timestamps; accepted couple FK         |
-| MediaAsset        | UUID; uploader FK; unique internal object key; detected type, byte size, dimensions, checksum; pending/ready/deletion-pending/deleted state; expiry for unfinished uploads     |
-| ContentItem       | UUID; couple and sender FKs; photo/drawing type; unique media FK; shared `saved_at` and optional `saved_by`; version; created/deleted timestamps                               |
-| DeviceToken       | UUID; user FK; installation ID; unique token digest; protected token value; enabled/revoked timestamps and last registration; user may have several installations              |
-| GameMatch         | UUID; couple FK; game type; inviter/next-player references; invited/active/completed/cancelled status; authoritative state; version; result; timestamps                        |
-| GameParticipant   | Match and user FKs; role/seat; unique `(match_id, user_id)` and `(match_id, seat)`                                                                                             |
-| GameMove          | UUID; match and actor FKs; sequence; action; expected/resulting versions; unique `(match_id, sequence)`; timestamp                                                             |
-| IdempotencyRecord | User FK, operation, key; request digest; original resource ID/status; unique `(user_id, operation, key)`                                                                       |
-| OutboxEvent       | UUID; type; resource ID/version; recipient; deduplication key; pending/processing/delivered/failed state; attempts, next attempt, lease, created/delivered timestamps          |
-| CleanupJob        | UUID; resource/object reference; delete-media/delete-identity type; retry/lease fields; unique operation/resource pair                                                         |
+## Proposed collections
 
-User settings may start as explicit columns on `app_user`; separate tables are
-not needed without a query/lifecycle reason. Media metadata stays separate to
-represent unfinished uploads. Cleanup and outbox rows contain only minimal
-internal IDs; never copy media or guesses into delivery payloads.
+| Entity/path                            | Purpose and enforcement required before implementation                                                     |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `couples/{coupleId}`                   | Exactly two distinct member UIDs only when active; closed couples authorize no reads                       |
+| `memberships/{uid}`                    | One authoritative active couple per user, written only with the couple transaction                         |
+| `invitations/{invitationId}`           | Creator, code digest, claimant, validity/consent/status; never a public code directory                     |
+| `couples/{coupleId}/content/{id}`      | Sender, type, private media reference, shared saved status, version, server timestamps, deletion tombstone |
+| `uploads/{uploadId}`                   | Private pending-media authorization/validation state and unfinished-upload cleanup                         |
+| `users/{uid}/devices/{installationId}` | Owner-bound FCM tokens/preferences; currently denied                                                       |
+| `couples/{coupleId}/matches/{matchId}` | Game participants, lifecycle, authoritative state/version; server-only mutation                            |
+| `.../matches/{matchId}/moves/{moveId}` | Actor, action, sequence/version, idempotency key; immutable accepted moves                                 |
+| `operations/{operationId}`             | Server-owned deduplication records scoped to user, operation, and request digest                           |
+| `deliveryEvents/{eventId}`             | Durable FCM work, recipient/resource/version, lease and retry state                                        |
+| `cleanupJobs/{jobId}`                  | Retryable storage/identity cleanup without restoring client access                                         |
 
-## Pairing integrity
+Use unguessable document IDs where appropriate and Firestore timestamps. IDs
+alone are not authorization. Do not put private media, passwords, email
+addresses, or game prompts in a broadly readable document. Firestore reads
+return whole documents; role-secret Draw & Guess state needs separate
+documents/projections.
 
-An active couple exists only after both people consent. A pending invitation is
-not a one-member couple. Approved guest flow: one user creates a code, another
-claims and explicitly accepts it, and the creator confirms that claimant. No
-content access is granted during a claim.
+## Pairing invariants
 
-Acceptance locks the invitation and both user rows in a stable order, rechecks
-expiry, consent, account status, and absence of active memberships, then creates
-the couple and both memberships atomically. Repeated confirmation by the same
-actor/key returns the same result; another claimant cannot reuse the invitation.
-Self-pairing, expired/revoked claims, and a third member are rejected.
+An invitation is not a one-member couple. Claimant and creator both consent
+before an active couple is created. The trusted pairing operation must
+transactionally read invitation validity and both deterministic membership
+documents, reject self-pairing/reuse/already-paired users, then write the
+accepted invitation, exactly two members, and both memberships. Concurrent
+acceptances must conflict/retry, not produce a third member or two active
+couples.
 
-Database enforcement must include:
+Firestore has no SQL foreign keys, uniqueness indexes, or deferred constraint
+triggers. Deny direct client writes to these authoritative documents, validate
+the invariants in trusted code, and test retries/concurrency against the
+emulator. Admin SDK calls bypass rules; functions must check the authenticated
+caller, verified email, current membership, and lifecycle for every operation.
 
-- `CHECK (slot IN (1, 2))`, slot uniqueness, and the partial unique active-user
-  membership index. These enforce at most two people and at most one active
-  couple per user.
-- A deferred constraint trigger on couple and membership changes verifies
-  exactly two current members for every active couple and zero current members
-  for a closed couple at commit. Lock the parent couple row before membership
-  changes to serialize concurrent updates; check both old and new parents on
-  reassignment.
-- Checks tying accepted invitation state to the accepted couple and timestamps,
-  and prohibiting inviter = claimant. Couple closure revokes pending invitations
-  involving its users. Invitation expiry is checked against server time within
-  the acceptance transaction, not a time-dependent `CHECK` constraint.
+## Content, memories, and games
 
-A row-level `CHECK` cannot count other rows safely. PostgreSQL provides
-[constraints](https://www.postgresql.org/docs/current/ddl-constraints.html) and
-[deferred constraint triggers](https://www.postgresql.org/docs/current/sql-createtrigger.html)
-for these distinct jobs. Test the raw SQL constraints as well as service
-behavior.
+Saved state belongs on the content item (`savedAt`, `savedBy`) and is shared.
+Saving/unsaving changes metadata without copying media. History contains every
+non-deleted exchanged item; the saved gallery filters it. Either partner may
+delete an item for both. There is no automatic expiry of exchanged content.
 
-## Content and memories
+A content submission must atomically persist authoritative metadata, its
+idempotency result, and delivery work after private media validation. Membership
+checks occur within the operation, not from a submitted sender/couple ID.
+Cleanup uses tombstones and durable jobs; security predicates deny reads before
+physical object deletion completes. Define bounded transaction/write behavior
+before implementing bulk unpair deletion.
 
-The approved memory model is a shared flag: `saved_at IS NOT NULL` means both
-partners see the item as saved. Either member may save or unsave; the media is
-stored once. History includes every non-deleted sent item; the saved gallery
-filters the same rows. Unsave never deletes exchange history.
+Games use server-validated actions and transactionally incremented versions. A
+client cannot submit an authoritative board/result. Draw & Guess persists the
+private prompt, drawing, and guess lifecycle; tic-tac-toe persists legal turns
+and consistent results. Invitation, completion, cancellation, restart,
+duplicate, out-of-turn, and concurrent-action contracts are required before
+their clients.
 
-Use a composite FK `(couple_id, sender_id)` to membership, so a sender belongs
-to the same historical couple. A DB trigger on submission/save changes rejects a
-closed couple, inactive sender, or non-ready media; couple closure is serialized
-with submission. `saved_by` must also reference that couple's membership. Only
-the server sets sender/couple IDs after authorization. The uploader must match
-sender, and ready media is immutable and can attach to only one content item.
-
-Deleting content records a tombstone and a cleanup job in the same transaction.
-Read predicates exclude tombstones and closed couples immediately. New content
-has no automatic expiry. Unfinished upload expiry is housekeeping, not
-expiration of exchanged content.
-
-## Games and concurrency
-
-Match participants must be the couple's two members at creation, checked under
-the couple lock; composite membership FKs and a deferred participant-count
-constraint enforce the relationship. `(match_id, actor_id)` on moves references
-participants. The server transaction locks the match, checks active membership,
-status, turn, rules, and expected version, then writes the move, result, and
-outbox event.
-
-Use unique move sequence and idempotency constraints to prevent duplicates. Two
-requests based on one version cannot both advance the game. Database constraints
-protect structure; game-specific legality is checked by authoritative Go rules
-inside that transaction, never by trusting client board state.
-
-- **Draw & Guess:** invited → active drawing → awaiting guess → completed;
-  invitation decline, participant cancellation, or unpairing → cancelled. Store
-  private prompt/drawing/guess state; never return the prompt to the guesser.
-- **Tic-tac-toe:** invited → active → completed (win/draw);
-  decline/cancel/unpair → cancelled. Network disconnect alone does not cancel. A
-  versioned snapshot recovers state after reconnect. Turn/guess limits and
-  cancellation UX need contracts in their game issues before implementation.
-
-## Indexes and migration verification
-
-Index referencing FKs used for lookup/deletion explicitly. Add chronological
-`(couple_id, created_at DESC, id DESC)` indexes for non-deleted content, a
-partial saved-content index when gallery queries exist, membership lookups,
-unique invite digests, `(match_id, sequence)`, and pending-job
-`(next_attempt_at, id)` indexes. Use a least-privilege application DB role;
-migrations use a separate role.
-
-Each schema PR must migrate an empty PostgreSQL database and an existing fixture
-forward, test direct constraint violations and concurrent transactions, and
-verify rollback on failure. Do not substitute SQLite or in-memory maps for
-PostgreSQL integrity/concurrency tests. Never edit an applied migration to
-change history.
+Indexes are added only for implemented queries. The current profile uses an
+exact UID lookup and needs no composite index. Future chronological galleries
+need scoped cursors and explicit composite indexes. Schema changes/backfills
+must remain compatible with old clients and must never temporarily broaden
+rules.

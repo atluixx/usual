@@ -1,9 +1,11 @@
 # Build-time branding plan
 
-Status: **not implemented**. There is no Gradle configuration or APK yet.
-[Issue #3](https://github.com/atluixx/usual/issues/3) tracks the smallest
-Android scaffold and branding implementation. `assets/logo.svg` is a provisional
-README mark, not a generated launcher icon.
+Status: **custom build-time branding not implemented**. The Android Gradle
+configuration now exists under `android/` with the default Usual name and a
+provisional vector icon. [Issue #3](https://github.com/atluixx/usual/issues/3)
+tracks the smallest Android branding implementation. The Firebase foundation
+introduces the shell separately. `assets/logo.svg` is a provisional README mark,
+not a generated launcher icon.
 
 ## Configuration contract to implement
 

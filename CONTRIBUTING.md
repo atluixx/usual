@@ -1,86 +1,98 @@
 # Contributing to Usual
 
-Usual is starting with a repository foundation. There is no app build, backend
-module, release, or selected license yet. Do not add documentation implying
-those exist before their implementation lands.
+Usual uses Kotlin/Compose on Android and Firebase Authentication/Cloud
+Firestore. There is no Go/PostgreSQL backend. Pairing, media, widgets, and games
+are future milestones. No release or license has been selected.
 
 ## Local checks
 
-Install the exact Node.js version in [.node-version](.node-version), then run
-from the repository root:
+Use Node.js from [.node-version](.node-version), JDK 21 or newer, Android SDK
+platform 36, and Build Tools 36.0.0. Point Android Studio or `ANDROID_HOME` at
+your SDK, or set `sdk.dir` in ignored `android/local.properties`.
+
+From the repository root:
 
 ```sh
 npm ci --ignore-scripts
 npm run check
+npm run test:firebase
 ```
 
-These commands check Markdown structure and formatting of supported
-documentation, JSON, and YAML files. They do not compile or test Android, Go,
-SQL, or SVG files or validate external links. `npm run format` applies
-formatting; `npm run lint:docs` runs only Markdown linting. Node.js is
-development tooling, not the backend runtime.
+The first check formats/lints supported Markdown/JSON/YAML/JavaScript files. It
+does not compile Kotlin, parse SVG, or check external links. The second starts
+local Auth/Firestore emulators and runs integration/Security Rules tests against
+`demo-usual`, without production credentials. Java 21+ is required by the
+emulator. Use `npm run format` to apply formatting.
 
-Commit `package-lock.json` with intentional tool updates. Do not use unpinned
-`npx ...@latest` commands in CI. The workflow uses the same lockfile and
-commands as local development, pinned action commits, read-only permissions, and
-no production secrets. Add app checks with the corresponding app scaffolds, as
-described in the [roadmap](docs/roadmap.md).
+From `android/`:
 
-The scoped KaTeX override pins the patched version for
-[GHSA-238p-pmpm-9mq7](https://github.com/advisories/GHSA-238p-pmpm-9mq7),
-because the linter's transitive math extension still requests an affected
-version range. Remove the override when upstream adopts a patched range; recheck
-math rendering and the repository checks when updating it.
+```sh
+./gradlew :app:assembleEmulatorDebug :app:lintEmulatorDebug :app:testEmulatorDebugUnitTest
+```
+
+These commands use the checked-in dummy emulator configuration; there are no
+production keys or Firebase credentials needed for ordinary CI builds. See
+[Firebase setup](docs/firebase.md) for running emulators and obtaining the
+ignored live app configuration. The Gradle wrapper and distribution checksum are
+pinned.
+
+The interactive Firebase setup commands use `npx -y firebase-tools@latest`, as
+required by the Firebase skills. The automated emulator test script pins CLI
+15.34.1 for reproducibility. Commit `package-lock.json` with intentional
+updates. Scoped dependency overrides pin patched KaTeX (GHSA-238p-pmpm-9mq7) and
+grpc-js (GHSA-m9gg-hp2v-232j); remove them after upstream adopts patched ranges
+and rerun checks. These are test/document tooling, not Android dependencies.
 
 ## Issue and pull request workflow
 
 1. Read the [architecture](docs/architecture.md), [domain](docs/domain.md),
    [privacy rules](docs/privacy.md), and related issues/PRs.
 2. Search [issues](https://github.com/atluixx/usual/issues?q=is%3Aissue) and
-   [pull requests](https://github.com/atluixx/usual/pulls?q=is%3Apr) before
-   creating work. Include closed work in the search.
-3. Find or create an issue with context, scope, acceptance criteria, and
-   relevant dependencies. Use existing `enhancement`, `bug`, or `documentation`
-   labels.
-4. Preserve local work. Start a dedicated branch from the latest `origin/main`.
-   Make one logical change; avoid speculative refactors.
-5. Define or update the API contract before its implementation and client.
-   Discuss decisions affecting privacy, destructive behavior, or compatibility
-   before implementing them. Record approved decisions in `docs/`.
-6. Add meaningful tests alongside application code. Run the checks appropriate
-   to the change and update documentation when setup or behavior changes.
-7. Open a PR targeting `main` with `Closes #<issue>`. Report checks actually
-   run, their results, limitations, and remaining decisions.
-8. Address review feedback and failing checks. An authorized human merges;
-   agents must not merge unless explicitly asked. Never push implementation to
+   [pull requests](https://github.com/atluixx/usual/pulls?q=is%3Apr), including
+   closed work, before creating tasks. Use `enhancement`, `bug`, or
+   `documentation` labels.
+3. Track meaningful changes in an issue with context, scope, acceptance
+   criteria, and dependencies. Preserve local work; use a dedicated branch based
+   on the latest default branch and keep one logical change per PR.
+4. Define Firestore document/rule contracts or callable-function contracts
+   before their clients. Discuss privacy/destructive/compatibility choices with
+   the owner and record approved decisions in `docs/`.
+5. Use the appropriate Firebase agent skills for every Firebase task. Inspect
+   existing projects/apps/database edition before provisioning; preserve
+   unrelated settings and never open collections in test mode as a shortcut.
+6. Add meaningful tests. Run applicable formatting, Android lint/unit/build and
+   Firebase emulator checks. Update documentation when behavior/setup changes.
+7. Open a PR with `Closes #<issue>`, checks actually run, results, limitations,
+   and remaining decisions. Address feedback and failing checks.
+8. A human merges unless explicitly delegated. Never push implementation to
    `main`.
 
-The repository audit found no branch protection. A maintainer should configure
-PR review and the real CI check as required once the workflow is available on
-`main`. The workflow itself cannot enforce repository protection.
+The initial audit found no branch protection. A maintainer should configure PR
+reviews and real CI checks as required once available on `main`; workflows alone
+cannot enforce repository protection. CI has read-only permissions and cannot
+merge or deploy production configuration.
 
 ## Secrets and privacy
 
-Use local ignored configuration and GitHub Actions secrets only when genuinely
-needed. Never commit credentials, service-account keys, signing keys, database
-backups, real invite codes, or private user media. Ignore rules are a
-convenience; review staged changes before committing.
+Keep live `google-services.json` local/ignored. It is client configuration, not
+an Admin SDK key. Never commit admin credentials, signing keys, passwords,
+invite codes, backups, private media, or real user fixtures. Review staged
+files; ignore rules are a convenience, not a security boundary.
 
-Ordinary tests must use test identities, private-storage fakes, or local
-emulators without production credentials. Never disable authorization for
-release builds to make tests pass. Keep private resource bodies and credentials
-out of logs and bug reports. Follow [docs/privacy.md](docs/privacy.md) for the
-intended access model.
+Never enable emulator trust in live/release variants. Use only `demo-` projects
+and local endpoints for tests. Admin SDK operations bypass Security Rules and
+require explicit authorization in future trusted functions. Do not log full SDK
+errors, credentials, request bodies, or private user data. See
+[privacy](docs/privacy.md).
 
 ## Documentation map
 
-- [Repository audit](docs/repository-audit.md): inspected baseline and
-  limitations.
-- [Architecture](docs/architecture.md): selected stack and module boundaries.
-- [Domain](docs/domain.md): proposed schema and integrity constraints.
-- [API design](docs/api.md): conventions and contract work before features.
-- [Privacy](docs/privacy.md): approved lifecycle and implementation
-  requirements.
-- [Branding](docs/branding.md): intended build configuration, not yet
-  implemented.
-- [Roadmap](docs/roadmap.md): ordered milestones, open decisions, and evidence.
+- [Audit](docs/repository-audit.md): inspected baseline and foundation history.
+- [Architecture](docs/architecture.md): current stack and planned boundaries.
+- [Firebase setup/contract](docs/firebase.md): configuration, profile schema,
+  and live/emulator instructions.
+- [Domain](docs/domain.md), [API](docs/api.md), and [privacy](docs/privacy.md):
+  current behavior and future invariants.
+- [Branding](docs/branding.md): build-time branding is still a separate task.
+- [Roadmap](docs/roadmap.md): issues, milestones, remaining decisions, and
+  evidence.

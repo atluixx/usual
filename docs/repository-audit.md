@@ -47,3 +47,11 @@ package*.json   Locked documentation tools only
 local environment has GitHub CLI access, Node.js, Go, Java, and Docker
 executables; application compilation, Docker daemon availability, and Android
 SDK/emulator readiness have not been verified.
+
+## Firebase implementation follow-up
+
+After this baseline, the owner selected Firebase Auth + Firestore and
+email/password authentication instead of Go/PostgreSQL and guest/Google
+onboarding. Issue #6 tracks the Android/Firebase implementation in the expanded
+PR #5. Current setup is in [Firebase documentation](firebase.md); the original
+audit above remains a record of what was inspected before changes.

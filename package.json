@@ -8,13 +8,19 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint:docs": "markdownlint-cli2",
-    "check": "npm run format:check && npm run lint:docs"
+    "check": "npm run format:check && npm run lint:docs",
+    "test:firebase": "npx -y firebase-tools@15.34.1 emulators:exec --project demo-usual --only auth,firestore \"node --test tests/firebase.test.mjs\""
   },
   "devDependencies": {
     "markdownlint-cli2": "0.24.0",
-    "prettier": "3.9.10"
+    "prettier": "3.9.10",
+    "@firebase/rules-unit-testing": "6.0.0",
+    "firebase": "13.1.0"
   },
   "overrides": {
+    "@firebase/firestore": {
+      "@grpc/grpc-js": "1.13.6"
+    },
     "micromark-extension-math": {
       "katex": "0.18.2"
     }

@@ -33,6 +33,7 @@ node_modules/
 local.properties
 branding.local.properties
 google-services.json
+!android/app/src/emulator/google-services.json
 *-firebase-adminsdk-*.json
 *.jks
 *.keystore
@@ -43,6 +44,8 @@ google-services.json
 **/build/
 /backend/bin/
 /coverage/
+.firebase/
+android/captures/
 
 # Keep the Gradle wrapper reproducible when it is introduced
 !gradle-wrapper.jar

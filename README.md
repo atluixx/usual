@@ -6,31 +6,32 @@
 
 <p align="center">A private space for two people to connect, play, and keep what matters.</p>
 
-Early development. This repository currently contains the engineering plan and
-repository checks; there is no runnable Android application or backend yet.
+Early development: an Android authentication and private-profile foundation.
 
 ## Features
 
-Planned for Android:
+- **Account:** Email/password sign-up and sign-in, verification/reset emails,
+  and sign-out.
+- **Profile:** A private display name stored in Cloud Firestore.
+- **Planned:** Couple pairing, photo/drawing exchange, memories, widgets, and
+  games.
 
-- **Connect:** Private photo and drawing exchange, notifications, and widgets.
-- **Play:** Asynchronous Draw & Guess and live tic-tac-toe.
-- **Remember:** Exchange history and shared saved memories.
-
-See the [roadmap](docs/roadmap.md) for milestones and verification status.
+See the [roadmap](docs/roadmap.md) for feature and verification status.
 
 ## Development
 
-Use the Node.js version in [.node-version](.node-version) for repository
-tooling:
+Use Node.js from [.node-version](.node-version), JDK 21+, and Android SDK 36:
 
 ```sh
 npm ci --ignore-scripts
 npm run check
+npm run test:firebase
+cd android
+./gradlew :app:assembleEmulatorDebug
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow and
-[docs/architecture.md](docs/architecture.md) for the selected Go backend stack.
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [Firebase setup](docs/firebase.md) to
+run the app with emulators or connect the live Firebase project.
 
 ## Contributing
 
