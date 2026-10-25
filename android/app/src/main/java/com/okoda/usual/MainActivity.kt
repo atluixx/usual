@@ -6,6 +6,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,6 +21,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -51,9 +55,10 @@ class MainActivity : ComponentActivity() {
         setContent {
             val model = viewModel { UsualViewModel(repository) }
             val coupleModel = viewModel { CoupleViewModel(repository, couples) }
+            val mediaModel = viewModel { MediaViewModel(application as UsualApplication, coupleModel.state) }
             val state by model.state.collectAsStateWithLifecycle()
             MaterialTheme {
-                UsualScreen(state, model, coupleModel, acquireGoogleToken = { googleIdToken(this) }, onSignOut = {
+                UsualScreen(state, model, coupleModel, mediaModel, (application as UsualApplication).media, acquireGoogleToken = { googleIdToken(this) }, onSignOut = {
                     model.signOut()
                     lifecycleScope.launch { clearGoogleCredentialState(this@MainActivity) }
                 })
@@ -67,28 +72,52 @@ private fun UsualScreen(
     state: UsualUiState,
     model: UsualViewModel,
     coupleModel: CoupleViewModel,
+    mediaModel: MediaViewModel,
+    media: MediaRepository,
     acquireGoogleToken: suspend () -> String,
     onSignOut: () -> Unit,
 ) {
-    Scaffold { insets ->
-        Column(
-            Modifier.fillMaxSize().padding(insets).imePadding()
-                .verticalScroll(rememberScrollState()).padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Image(painterResource(R.drawable.ic_usual), null, Modifier.size(64.dp))
-            Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineLarge)
-            Text("A private space for two people.")
-            Spacer(Modifier.height(8.dp))
+    var tab by remember(state.account?.uid) { mutableStateOf("Connect") }
+    val pairing by coupleModel.state.collectAsStateWithLifecycle()
+    val pending by mediaModel.outbox.collectAsStateWithLifecycle()
+    Scaffold(bottomBar = {
+        if (state.account != null) NavigationBar {
+            listOf("Connect", "Memories", "Settings").forEach { destination ->
+                NavigationBarItem(selected = tab == destination, onClick = { tab = destination }, icon = { Text(when (destination) { "Connect" -> "♡"; "Memories" -> "▧"; else -> "⚙" }) }, label = { Text(destination) })
+            }
+        }
+    }) { insets ->
+        Column(Modifier.fillMaxSize().padding(insets).imePadding().padding(16.dp)) {
+            Row {
+                Image(painterResource(R.drawable.ic_usual), null, Modifier.size(40.dp))
+                Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineLarge)
+            }
+            Spacer(Modifier.height(12.dp))
             val account = state.account
             if (account == null) {
-                WelcomeForm(state, model, acquireGoogleToken)
-            } else {
-                PairingPanel(coupleModel)
-                ProfileForm(account, state, model, acquireGoogleToken, onSignOut)
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    WelcomeForm(state, model, acquireGoogleToken)
+                    if (state.busy) CircularProgressIndicator(Modifier.size(24.dp))
+                    state.notice?.let { Text(it) }
+                }
+            } else Box(Modifier.weight(1f)) {
+                when (tab) {
+                    "Memories" -> GalleryScreen(mediaModel, media)
+                    "Settings" -> Column(Modifier.verticalScroll(rememberScrollState())) {
+                        ProfileForm(account, state, model, acquireGoogleToken, onSignOut)
+                        PrivateImage(media, null, account.uid, avatar = true, version = pending.count { it.uid == account.uid && it.kind == "AVATAR" })
+                        ContentComposer(mediaModel, avatar = true)
+                        PairingPanel(coupleModel)
+                        state.notice?.let { Text(it) }
+                    }
+                    else -> Column(Modifier.verticalScroll(rememberScrollState())) {
+                        PairingPanel(coupleModel)
+                        TextButton(onClick = { tab = "Settings" }) { Text("Your name and optional Google recovery") }
+                        PendingSends(mediaModel)
+                        if (pairing.couple.coupleId != null) ContentComposer(mediaModel)
+                    }
+                }
             }
-            if (state.busy) CircularProgressIndicator(Modifier.size(24.dp))
-            state.notice?.let { Text(it) }
         }
     }
 }

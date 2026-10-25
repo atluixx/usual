@@ -2,8 +2,8 @@
 
 Usual uses Kotlin/Compose on Android and Firebase Authentication/Cloud Firestore
 with trusted TypeScript Cloud Functions. There is no Go/PostgreSQL backend.
-Media, widgets, and games follow pairing as separate milestones. No release or
-license has been selected.
+Media and shared memories extend pairing; widgets and games follow as separate
+milestones. No release or license has been selected.
 
 ## Local checks
 
@@ -17,6 +17,7 @@ From the repository root:
 npm ci --ignore-scripts
 npm run check
 npm run test:firebase
+npm run test:storage
 npm ci --ignore-scripts --prefix functions
 npm run test:backend
 ```

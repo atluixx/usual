@@ -1,0 +1,29 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function activeOwner(uid) {
+      return request.auth != null && request.auth.uid == uid
+        && (!firestore.exists(/databases/(default)/documents/accounts/$(uid))
+          || firestore.get(/databases/(default)/documents/accounts/$(uid)).data.state == 'active');
+    }
+    match /pending/{uid}/{uploadId} {
+      function permit() {
+        return firestore.get(/databases/(default)/documents/uploads/$(uid)/items/$(uploadId)).data;
+      }
+      function validPermit() {
+        let p = permit();
+        return p.uid == uid && p.uploadId == uploadId && p.state == 'pending'
+          && p.expiresAt > request.time;
+      }
+      allow read: if activeOwner(uid) && validPermit();
+      allow write: if activeOwner(uid) && validPermit()
+        && request.resource != null
+        && request.resource.size > 0 && request.resource.size <= 4 * 1024 * 1024
+        && request.resource.size == permit().bytes
+        && request.resource.contentType in ['image/png', 'image/jpeg']
+        && request.resource.metadata.keys().hasOnly(['sha256'])
+        && request.resource.metadata.sha256 == permit().sha256;
+    }
+    match /{path=**} { allow read, write: if false; }
+  }
+}

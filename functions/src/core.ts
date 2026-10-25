@@ -153,6 +153,31 @@ export async function once(
     return result;
   });
 }
+
+export async function receipt(
+  uid: string,
+  op: string,
+  requestId: string,
+  data: Args,
+  authorize: (tx: Transaction, result: Result) => Promise<void>,
+): Promise<Result | null> {
+  if (!/^[a-zA-Z0-9_-]{16,80}$/.test(requestId))
+    return fail("invalid-argument", "A stable request ID is required.");
+  return db.runTransaction(async (tx) => {
+    await activeAccount(tx, uid);
+    const previous = (
+      await tx.get(db.doc("operations/" + uid + "/requests/" + requestId))
+    ).data();
+    if (!previous) return null;
+    if (previous.digest !== hash(canonical({ op, data })))
+      return fail(
+        "already-exists",
+        "This request ID was used for another action.",
+      );
+    await authorize(tx, previous.result);
+    return previous.result as Result;
+  });
+}
 export async function rateLimit(uid: string): Promise<void> {
   const reference = db.doc("limits/" + uid);
   await db.runTransaction(async (tx) => {

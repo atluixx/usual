@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { randomBytes } from "node:crypto";
+import { randomBytes, createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import { initializeApp, deleteApp } from "firebase/app";
 import {
@@ -20,6 +20,13 @@ import {
   doc,
   getDocFromServer,
 } from "firebase/firestore";
+import {
+  getStorage,
+  connectStorageEmulator,
+  ref,
+  uploadBytes,
+  getDownloadURL,
+} from "firebase/storage";
 assert.match(
   process.env.FIREBASE_AUTH_EMULATOR_HOST || "",
   /^(127\.0\.0\.1|localhost):\d+$/,
@@ -50,10 +57,18 @@ function client(name) {
   const database = getFirestore(app);
   const [host, port] = process.env.FIRESTORE_EMULATOR_HOST.split(":");
   connectFirestoreEmulator(database, host, Number(port));
+  const storage = getStorage(app, "gs://demo-usual.firebasestorage.app");
+  connectStorageEmulator(storage, "127.0.0.1", 9199);
   const api = httpsCallable(functions, "api");
   const call = (op, data, requestId = crypto.randomUUID()) =>
-    api({ v: 1, op, requestId, data }).then((value) => value.data);
-  return { app, auth, database, call };
+    api({
+      v: 1,
+      op,
+      requestId,
+      data,
+      ...(auth.currentUser ? { actorUid: auth.currentUser.uid } : {}),
+    }).then((value) => value.data);
+  return { app, auth, database, storage, call };
 }
 test("real callable protocol pairs two anonymous SDK users and denies unauthenticated/third-user actions", async () => {
   const a = client("callable-alice");
@@ -99,5 +114,89 @@ test("real callable protocol pairs two anonymous SDK users and denies unauthenti
   } finally {
     await Promise.all([a, b, c].map((value) => signOut(value.auth)));
     await Promise.all([a, b, c].map((value) => deleteApp(value.app)));
+  }
+});
+
+test("real anonymous SDK clients upload a drawing, retry one send, receive, save and delete it privately", async () => {
+  const a = client("drawing-alice");
+  const b = client("drawing-bob");
+  try {
+    await Promise.all([a, b].map((value) => signInAnonymously(value.auth)));
+    const code = randomBytes(12).toString("hex");
+    const invitation = await a.call("pair.create", { code });
+    await b.call("pair.claim", { code });
+    const { coupleId } = await a.call("pair.confirm", {
+      invitationId: invitation.invitationId,
+      confirm: true,
+    });
+    const bytes = await require("sharp")({
+      create: { width: 32, height: 32, channels: 4, background: "#be4b60" },
+    })
+      .png()
+      .toBuffer();
+    const sha256 = createHash("sha256").update(bytes).digest("hex");
+    const uploadId = crypto.randomUUID();
+    await a.call("media.authorize", {
+      uploadId,
+      sha256,
+      bytes: bytes.length,
+      kind: "DRAWING",
+      coupleId,
+    });
+    await uploadBytes(
+      ref(a.storage, "pending/" + a.auth.currentUser.uid + "/" + uploadId),
+      bytes,
+      { contentType: "image/png", customMetadata: { sha256 } },
+    );
+    const data = {
+      coupleId,
+      kind: "DRAWING",
+      uploadId,
+      sha256,
+      caption: "For you",
+    };
+    const result = await a.call("content.send", data, uploadId);
+    assert.deepEqual(await a.call("content.send", data, uploadId), result);
+    const document = doc(
+      b.database,
+      "couples/" + coupleId + "/content/" + result.contentId,
+    );
+    assert.equal((await getDocFromServer(document)).data().caption, "For you");
+    const image = await b.call("content.media", {
+      coupleId,
+      contentId: result.contentId,
+    });
+    assert.ok(Buffer.from(image.base64, "base64").length > 0);
+    await assert.rejects(
+      getDownloadURL(
+        ref(
+          b.storage,
+          "private/couples/" + coupleId + "/content/" + result.contentId,
+        ),
+      ),
+    );
+    await b.call("content.ack", {
+      coupleId,
+      ids: [result.contentId],
+      opened: true,
+    });
+    await b.call("content.save", {
+      coupleId,
+      contentId: result.contentId,
+      saved: true,
+    });
+    assert.equal(
+      (await getDocFromServer(doc(a.database, document.path))).data().saved,
+      true,
+    );
+    await b.call("content.delete", { coupleId, contentId: result.contentId });
+    await assert.rejects(getDocFromServer(document));
+    await assert.rejects(
+      a.call("content.media", { coupleId, contentId: result.contentId }),
+      { code: "functions/not-found" },
+    );
+  } finally {
+    await Promise.all([a, b].map((value) => signOut(value.auth)));
+    await Promise.all([a, b].map((value) => deleteApp(value.app)));
   }
 });

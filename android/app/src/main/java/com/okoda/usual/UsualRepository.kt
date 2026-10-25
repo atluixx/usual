@@ -21,7 +21,7 @@ sealed interface ProfileState {
     data class Failed(val message: String) : ProfileState
 }
 
-class UserFacingException(message: String) : Exception(message)
+class UserFacingException(message: String, val retryable: Boolean = false) : Exception(message)
 
 interface UsualRepository {
     fun observeAccount(onChanged: (Account?) -> Unit): () -> Unit

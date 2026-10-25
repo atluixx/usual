@@ -3,7 +3,8 @@
 The owner replaced PostgreSQL with Firestore before product implementation. This
 model preserves the product invariants while making enforcement explicit.
 Profiles, pairing state, invitations, couples, account tombstones, operation
-receipts and cleanup jobs are implemented. Content and games remain proposals.
+receipts and cleanup jobs are implemented. Content, private media and avatars
+are implemented; games remain the next milestone.
 
 ## Implemented private profile
 

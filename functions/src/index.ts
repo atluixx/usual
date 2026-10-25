@@ -15,16 +15,55 @@ import {
 } from "./core.js";
 import { deleteIdentity, pairing } from "./pairing.js";
 import { cleanup } from "./maintenance.js";
+import { content, avatar, visibleContent } from "./content.js";
+import { authorizeUpload, discardUpload } from "./uploads.js";
+import { activeAccount, activeCouple, db, id } from "./core.js";
 
 export async function execute(uid: string, input: unknown): Promise<Result> {
   const envelope = object(input);
-  fields(envelope, ["v", "op", "requestId", "data"]);
+  fields(envelope, ["v", "op", "requestId", "data", "actorUid"]);
+  if (envelope.actorUid !== undefined && envelope.actorUid !== uid)
+    return fail(
+      "unauthenticated",
+      "Your session changed. Retry from the current identity.",
+    );
   if (envelope.v !== 1 || Buffer.byteLength(JSON.stringify(envelope)) > 32_768)
     return fail("invalid-argument", "Unsupported or oversized request.");
   const op = text(envelope, "op", 1, 64);
   const key = text(envelope, "requestId", 16, 80);
   const data: Args = object(envelope.data);
   if (op.startsWith("pair.")) return pairing(uid, op, key, data);
+  if (op.startsWith("content.")) return content(uid, op, key, data);
+  if (op.startsWith("profile.avatar")) return avatar(uid, op, key, data);
+  if (op === "media.authorize") return authorizeUpload(uid, data);
+  if (op === "media.discard") return discardUpload(uid, data);
+  if (op === "operation.status") {
+    fields(data, ["requestId", "coupleId"]);
+    const original = id(data, "requestId");
+    return db.runTransaction(async (tx) => {
+      await activeAccount(tx, uid);
+      const previous = (
+        await tx.get(db.doc("operations/" + uid + "/requests/" + original))
+      ).data();
+      if (
+        !previous ||
+        !["content.send", "profile.avatar", "game.draw"].includes(previous.op)
+      )
+        return { completed: false };
+      const result = previous.result;
+      if (result.coupleId) {
+        if (data.coupleId !== result.coupleId)
+          return fail(
+            "permission-denied",
+            "This send belongs to another couple.",
+          );
+        await activeCouple(tx, uid, result.coupleId);
+        if (result.contentId)
+          await visibleContent(tx, uid, result.coupleId, result.contentId);
+      }
+      return { completed: true, result };
+    });
+  }
   if (op === "identity.delete") {
     fields(data, ["confirm"]);
     confirmed(data);
@@ -37,6 +76,7 @@ export const api = onCall(
   {
     region: "southamerica-east1",
     maxInstances: 3,
+    concurrency: 1,
     memory: "512MiB",
     timeoutSeconds: 60,
   },

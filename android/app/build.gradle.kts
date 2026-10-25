@@ -24,7 +24,7 @@ android {
         }
         create("emulator") {
             dimension = "environment"
-            applicationIdSuffix = ".emulator"
+            applicationIdSuffix = if (providers.gradleProperty("partnerEmulator").orNull == "true") ".emulator.partner" else ".emulator"
             buildConfigField("boolean", "USE_FIREBASE_EMULATORS", "true")
         }
     }
@@ -64,6 +64,8 @@ dependencies {
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
     implementation(libs.firebase.functions)
+    implementation(libs.firebase.storage)
+    implementation(libs.work)
     implementation(libs.credentials)
     implementation(libs.credentials.play.services)
     implementation(libs.google.id)
