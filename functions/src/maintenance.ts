@@ -3,6 +3,7 @@ import { Timestamp } from "firebase-admin/firestore";
 import { clearState, db, now, state } from "./core.js";
 import { mediaBucket, sweepOrphans } from "./media.js";
 import { expireUploads, revokeCoupleUploads } from "./uploads.js";
+import { expireGameInvitations } from "./games.js";
 
 async function deletePrefix(prefix: string): Promise<void> {
   for (let page = 0; page < 5; page++) {
@@ -58,6 +59,7 @@ async function redactInvitations(field: string, value: string): Promise<void> {
 }
 
 export async function cleanup(): Promise<void> {
+  await expireGameInvitations();
   const invitations = await db
     .collection("invitations")
     .where("status", "in", ["pending", "claimed"])

@@ -50,11 +50,12 @@ class MediaRepository(private val database: FirebaseFirestore, private val backe
         }
         return { listener.remove() }
     }
-    suspend fun image(coupleId: String?, contentId: String, thumbnail: Boolean = true, avatar: Boolean = false, fresh: Boolean = false): Bitmap = requests.withPermit {
+    suspend fun image(coupleId: String?, contentId: String, thumbnail: Boolean = true, avatar: Boolean = false, game: Boolean = false, fresh: Boolean = false): Bitmap = requests.withPermit {
         val uid = FirebaseAuth.getInstance().currentUser?.uid ?: throw UserFacingException("Start a session.")
-        val key = uid + ":" + coupleId + ":" + contentId + ":" + thumbnail + ":" + avatar
+        val key = uid + ":" + coupleId + ":" + contentId + ":" + thumbnail + ":" + avatar + ":" + game
         if (!fresh) images.get(key)?.let { return@withPermit it }
         val result = if (avatar) backend.call("profile.avatarMedia", mapOf("ownerUid" to contentId, "thumbnail" to thumbnail), expectedUid = uid)
+            else if (game) backend.call("game.media", mapOf("coupleId" to coupleId, "matchId" to contentId, "thumbnail" to thumbnail), expectedUid = uid)
             else backend.call("content.media", mapOf("coupleId" to coupleId, "contentId" to contentId, "thumbnail" to thumbnail), expectedUid = uid)
         val bytes = Base64.decode(result["base64"] as? String ?: throw UserFacingException("Image unavailable."), Base64.DEFAULT)
         if (bytes.size > 4 * 1024 * 1024) throw UserFacingException("Image too large.")

@@ -171,6 +171,11 @@ export async function sweepOrphans(time = Date.now()): Promise<void> {
         orphan =
           (await db.doc("avatars/" + parts[2]).get()).data()?.mediaPath !==
           file.name;
+      if (parts[1] === "couples" && parts[3] === "games")
+        orphan =
+          (
+            await db.doc("couples/" + parts[2] + "/matches/" + parts[4]).get()
+          ).data()?.drawingPath !== file.name;
       if (orphan) await file.delete({ ignoreNotFound: true });
     }
     await cursorRef.set({ pageToken: next?.pageToken || null });

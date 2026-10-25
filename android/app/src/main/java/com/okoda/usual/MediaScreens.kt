@@ -47,11 +47,11 @@ import java.util.Date
 import java.util.UUID
 
 @Composable
-fun PrivateImage(repository: MediaRepository, coupleId: String?, id: String, avatar: Boolean = false, full: Boolean = false, version: Int = 0) {
+fun PrivateImage(repository: MediaRepository, coupleId: String?, id: String, avatar: Boolean = false, full: Boolean = false, version: Int = 0, game: Boolean = false) {
     var attempt by remember(coupleId, id) { mutableStateOf(0) }
     var failed by remember(coupleId, id) { mutableStateOf(false) }
     val bitmap by produceState<Bitmap?>(null, coupleId, id, attempt, version) {
-        try { value = repository.image(coupleId, id, thumbnail = !full, avatar = avatar, fresh = avatar || attempt > 0); failed = false }
+        try { value = repository.image(coupleId, id, thumbnail = !full, avatar = avatar, game = game, fresh = avatar || attempt > 0); failed = false }
         catch (_: UserFacingException) { failed = true }
         catch (_: Exception) { failed = true }
     }
@@ -61,7 +61,7 @@ fun PrivateImage(repository: MediaRepository, coupleId: String?, id: String, ava
 }
 
 @Composable
-fun ContentComposer(model: MediaViewModel, avatar: Boolean = false, gameId: String? = null, startAction: String? = null) {
+fun ContentComposer(model: MediaViewModel, avatar: Boolean = false, gameId: String? = null, gameVersion: Int? = null, startAction: String? = null) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val state by model.state.collectAsStateWithLifecycle()
@@ -121,7 +121,7 @@ fun ContentComposer(model: MediaViewModel, avatar: Boolean = false, gameId: Stri
                 state.notice?.let { Text(it) }
             } },
             confirmButton = { TextButton(enabled = !state.busy, onClick = {
-                model.queue(kind, caption, file, gameId, onQueued = { preview = null; caption = ""; drawing = gameId != null })
+                model.queue(kind, caption, file, gameId, gameVersion, onQueued = { preview = null; caption = ""; drawing = gameId != null })
             }) { Text(if (avatar) "Use avatar" else "Send privately") } },
             dismissButton = { TextButton(enabled = !state.busy, onClick = { file.delete(); preview = null }) { Text("Discard preview") } },
         )

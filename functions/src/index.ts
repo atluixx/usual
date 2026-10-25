@@ -18,6 +18,7 @@ import { cleanup } from "./maintenance.js";
 import { content, avatar, visibleContent } from "./content.js";
 import { authorizeUpload, discardUpload } from "./uploads.js";
 import { activeAccount, activeCouple, db, id } from "./core.js";
+import { games } from "./games.js";
 
 export async function execute(uid: string, input: unknown): Promise<Result> {
   const envelope = object(input);
@@ -34,6 +35,7 @@ export async function execute(uid: string, input: unknown): Promise<Result> {
   const data: Args = object(envelope.data);
   if (op.startsWith("pair.")) return pairing(uid, op, key, data);
   if (op.startsWith("content.")) return content(uid, op, key, data);
+  if (op.startsWith("game.")) return games(uid, op, key, data);
   if (op.startsWith("profile.avatar")) return avatar(uid, op, key, data);
   if (op === "media.authorize") return authorizeUpload(uid, data);
   if (op === "media.discard") return discardUpload(uid, data);
@@ -109,6 +111,8 @@ export const maintenance = onSchedule(
     schedule: "every 5 minutes",
     region: "southamerica-east1",
     maxInstances: 1,
+    concurrency: 1,
+    memory: "512MiB",
     timeoutSeconds: 540,
   },
   async () => {

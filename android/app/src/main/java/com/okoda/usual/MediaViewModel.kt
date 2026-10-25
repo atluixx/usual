@@ -84,12 +84,12 @@ class MediaViewModel(private val app: UsualApplication, pairing: StateFlow<Pairi
         val coupleId = mutable.value.coupleId ?: return
         action { app.backend.call(op, mapOf("coupleId" to coupleId, "contentId" to item.id) + extra, expectedUid = uid) }
     }
-    fun queue(kind: String, caption: String, file: File? = null, gameId: String? = null, onQueued: (() -> Unit)? = null) {
+    fun queue(kind: String, caption: String, file: File? = null, gameId: String? = null, gameVersion: Int? = null, onQueued: (() -> Unit)? = null) {
         val uid = mutable.value.uid ?: return
         val coupleId = if (kind == "AVATAR") null else mutable.value.coupleId ?: return
         if (caption.length > 280 || kind == "MESSAGE" && caption.isBlank()) { mutable.update { it.copy(notice = "Write a message with 1–280 characters.") }; return }
         action {
-            val send = withContext(Dispatchers.IO) { app.outbox.enqueue(uid, coupleId, kind, caption.trim(), file, gameId) }
+            val send = withContext(Dispatchers.IO) { app.outbox.enqueue(uid, coupleId, kind, caption.trim(), file, gameId, gameVersion) }
             if (mutable.value.uid != uid || coupleId != null && mutable.value.coupleId != coupleId) { app.outbox.remove(send.id); return@action }
             file?.delete()
             scheduleSend(app, send)

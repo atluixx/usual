@@ -6,7 +6,7 @@
 
 <p align="center">A private space for two people to connect, play, and keep what matters.</p>
 
-Early development: an Android authentication and private-profile foundation.
+Early development: an Android app with a private Firebase backend.
 
 ## Features
 
@@ -18,7 +18,8 @@ Early development: an Android authentication and private-profile foundation.
 - **Connect:** Private photos, drawings, short messages, reactions, and
   retryable sends.
 - **Remember:** Shared history, saved memories, details, and deletion for both.
-- **Planned:** Widgets, notifications, and games.
+- **Play:** Persistent Draw & Guess and live, server-validated tic-tac-toe.
+- **Planned:** Widgets and notifications.
 
 See the [roadmap](docs/roadmap.md) for feature and verification status.
 
