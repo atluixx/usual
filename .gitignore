@@ -22,3 +22,27 @@
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+
+# Repository tooling
+node_modules/
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+local.properties
+branding.local.properties
+google-services.json
+*-firebase-adminsdk-*.json
+*.jks
+*.keystore
+
+# Android and Go build outputs (scaffolds are added in later milestones)
+.gradle/
+.kotlin/
+**/build/
+/backend/bin/
+/coverage/
+
+# Keep the Gradle wrapper reproducible when it is introduced
+!gradle-wrapper.jar
