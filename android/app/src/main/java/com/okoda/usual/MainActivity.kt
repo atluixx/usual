@@ -96,6 +96,7 @@ private fun UsualScreen(
     val mediaState by mediaModel.state.collectAsStateWithLifecycle()
     val gameState by gameModel.state.collectAsStateWithLifecycle()
     var quickAction by remember(state.account?.uid, pairing.couple.coupleId) { mutableStateOf<String?>(null) }
+    var quickSequence by remember(state.account?.uid, pairing.couple.coupleId) { mutableStateOf(0) }
     var routeNotice by remember(state.account?.uid) { mutableStateOf<String?>(null) }
     LaunchedEffect(destination, state.account?.uid, pairing.couple, mediaState.coupleId, gameState.coupleId) {
         val route = destination ?: return@LaunchedEffect
@@ -104,8 +105,8 @@ private fun UsualScreen(
         if (route.coupleId != null && route.coupleId != pairing.couple.coupleId) routeNotice = "This shared item is no longer available to this pairing."
         else when (route.type) {
             "content" -> { tab = "Memories"; route.resourceId?.let(mediaModel::select) }
-            "game" -> { tab = "Play"; route.resourceId?.let(gameModel::select) }
-            "draw", "photo" -> { tab = "Connect"; quickAction = route.type }
+            "game" -> { tab = "Play"; if (route.resourceId == null) gameModel.close() else gameModel.select(route.resourceId) }
+            "draw", "photo" -> { tab = "Connect"; quickAction = route.type; quickSequence++ }
         }
         consumedDestination()
     }
@@ -118,7 +119,7 @@ private fun UsualScreen(
     }) { insets ->
         Column(Modifier.fillMaxSize().padding(insets).imePadding().padding(16.dp)) {
             Row {
-                Image(painterResource(R.drawable.ic_usual), null, Modifier.size(40.dp))
+                Image(painterResource(R.drawable.brand_logo), null, Modifier.size(40.dp))
                 Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineLarge)
             }
             Spacer(Modifier.height(12.dp))
@@ -143,10 +144,10 @@ private fun UsualScreen(
                         state.notice?.let { Text(it) }
                     }
                     else -> Column(Modifier.verticalScroll(rememberScrollState())) {
-                        PairingPanel(coupleModel)
+                        PairingPanel(coupleModel, compact = true)
                         TextButton(onClick = { tab = "Settings" }) { Text("Your name and optional Google recovery") }
                         PendingSends(mediaModel)
-                        if (pairing.couple.coupleId != null) androidx.compose.runtime.key(quickAction) { ContentComposer(mediaModel, startAction = quickAction) }
+                        if (pairing.couple.coupleId != null) androidx.compose.runtime.key(quickAction, quickSequence) { ContentComposer(mediaModel, startAction = quickAction) }
                     }
                 }
             }
@@ -158,7 +159,7 @@ private fun UsualScreen(
 private fun WelcomeForm(state: UsualUiState, model: UsualViewModel, acquireGoogleToken: suspend () -> String) {
     var legacySignIn by remember { mutableStateOf(false) }
     Text("Start together", style = MaterialTheme.typography.titleLarge)
-    Text("No email or password needed. You can link Google later if you want to recover your Usual profile on another device.")
+    Text("No email or password needed. You can link Google later if you want to recover your profile on another device.")
     Button(onClick = model::startGuest, enabled = !state.busy, modifier = Modifier.fillMaxWidth()) {
         Text("Continue without an account")
     }
@@ -225,7 +226,7 @@ private fun ProfileForm(
     LaunchedEffect(account.uid, profile?.displayName) {
         if (displayName.isEmpty()) displayName = profile?.displayName.orEmpty()
     }
-    Text(if (account.isGuest) "Your guest space" else "Your Usual profile", style = MaterialTheme.typography.titleMedium)
+    Text(if (account.isGuest) "Your guest space" else "Your profile", style = MaterialTheme.typography.titleMedium)
     when (val current = state.profile) {
         ProfileState.Loading -> Text("Loading your private profile…")
         ProfileState.Missing -> Text("Choose a display name to finish your profile.")
@@ -250,7 +251,7 @@ private fun ProfileForm(
     )
     Button(onClick = { model.saveProfile(displayName) }, enabled = !state.busy) { Text("Save profile") }
     TextButton(onClick = model::refresh, enabled = !state.busy) { Text("Refresh account and profile") }
-    Text("Google backup is optional. Email verification is not required to use Usual or to pair.")
+    Text("Google backup is optional. Email verification is not required to use the app or to pair.")
     if (account.googleLinked) {
         Text("Google linked. Use the same Google account to recover this profile on another device.")
     } else {

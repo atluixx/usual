@@ -48,10 +48,10 @@ class NotificationWorker(context: Context, parameters: WorkerParameters) : Corou
             val destination = AppDestination(type, result["coupleId"] as? String, result["resourceId"] as? String)
             if (AppDestination.parse(destination.link()) != destination) return Result.failure()
             val manager = app.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            manager.createNotificationChannel(NotificationChannel("private-updates", "Usual updates", NotificationManager.IMPORTANCE_DEFAULT).apply { lockscreenVisibility = Notification.VISIBILITY_PRIVATE })
+            manager.createNotificationChannel(NotificationChannel("private-updates", app.getString(R.string.app_name) + " updates", NotificationManager.IMPORTANCE_DEFAULT).apply { lockscreenVisibility = Notification.VISIBILITY_PRIVATE })
             val intent = Intent(app, MainActivity::class.java).setData(Uri.parse(destination.link())).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             val pending = PendingIntent.getActivity(app, eventId.hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-            manager.notify(eventId, 0, Notification.Builder(app, "private-updates").setSmallIcon(R.drawable.ic_usual).setContentTitle(app.getString(R.string.app_name))
+            manager.notify(eventId, 0, Notification.Builder(app, "private-updates").setSmallIcon(R.drawable.ic_notification).setContentTitle(app.getString(R.string.app_name))
                 .setContentText(if (type == "content") "A new moment is waiting for you." else "There is an update to your game.")
                 .setVisibility(Notification.VISIBILITY_PRIVATE).setContentIntent(pending).setAutoCancel(true).build())
             val edit = seen.edit()

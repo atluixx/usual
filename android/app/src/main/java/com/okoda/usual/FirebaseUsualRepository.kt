@@ -161,7 +161,7 @@ class FirebaseUsualRepository(
         is FirebaseAuthInvalidCredentialsException, is FirebaseAuthInvalidUserException ->
             "Couldn’t sign in. Check your email and password."
         is FirebaseAuthUserCollisionException ->
-            "This sign-in is already used by another Usual account. Your current session and data are unchanged. Accounts were not merged."
+            "This sign-in is already used by another account. Your current session and data are unchanged. Accounts were not merged."
         is FirebaseAuthException -> when (error.errorCode) {
             "ERROR_OPERATION_NOT_ALLOWED", "ERROR_ADMIN_RESTRICTED_OPERATION" ->
                 "This sign-in option isn’t enabled yet. Please retry after setup is complete."

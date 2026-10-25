@@ -12,7 +12,7 @@ Early development: an Android app with a private Firebase backend.
 
 - **Access:** Continue without an account; optionally link Google for recovery.
   Existing email accounts retain sign-in/reset support.
-- **Profile:** A private display name stored in Cloud Firestore.
+- **Profile:** A private display name and avatar.
 - **Together:** Private pairing codes, confirmation by both people, unpairing,
   and identity deletion.
 - **Connect:** Private photos, drawings, short messages, reactions, and
@@ -37,7 +37,8 @@ cd android
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) and [Firebase setup](docs/firebase.md) to
-run the app with emulators or connect the live Firebase project.
+run the app with emulators or connect the live Firebase project. Rebrand with
+the documented [build configuration](docs/branding.md).
 
 ## Contributing
 

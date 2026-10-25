@@ -4,7 +4,7 @@ The owner replaced PostgreSQL with Firestore before product implementation. This
 model preserves the product invariants while making enforcement explicit.
 Profiles, pairing state, invitations, couples, account tombstones, operation
 receipts and cleanup jobs are implemented. Content, private media and avatars
-are implemented; games remain the next milestone.
+are implemented, as are games, notification delivery and widget preferences.
 
 ## Implemented private profile
 
@@ -17,21 +17,21 @@ enforce owner-only exact-document reads and validated creates/updates, immutable
 UID and creation time, an 80-character name bound, and no extra fields. Clients
 cannot list or delete profiles or add membership/admin fields.
 
-## Proposed collections
+## Collections
 
-| Entity/path                            | Purpose and enforcement required before implementation                                                     |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `couples/{coupleId}`                   | Exactly two distinct member UIDs only when active; closed couples authorize no reads                       |
-| `pairing/{uid}`                        | One authoritative active couple per user, written only with the couple transaction                         |
-| `invitations/{invitationId}`           | Creator, code digest, claimant, validity/consent/status; never a public code directory                     |
-| `couples/{coupleId}/content/{id}`      | Sender, type, private media reference, shared saved status, version, server timestamps, deletion tombstone |
-| `uploads/{uploadId}`                   | Private pending-media authorization/validation state and unfinished-upload cleanup                         |
-| `users/{uid}/devices/{installationId}` | Owner-bound FCM tokens/preferences; currently denied                                                       |
-| `couples/{coupleId}/matches/{matchId}` | Game participants, lifecycle, authoritative state/version; server-only mutation                            |
-| `.../matches/{matchId}/moves/{moveId}` | Actor, action, sequence/version, idempotency key; immutable accepted moves                                 |
-| `operations/{operationId}`             | Server-owned deduplication records scoped to user, operation, and request digest                           |
-| `deliveryEvents/{eventId}`             | Durable FCM work, recipient/resource/version, lease and retry state                                        |
-| `cleanupJobs/{jobId}`                  | Retryable storage/identity cleanup without restoring client access                                         |
+| Entity/path                             | Purpose and enforcement                                                                                    |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `couples/{coupleId}`                    | Exactly two distinct member UIDs only when active; closed couples authorize no reads                       |
+| `pairing/{uid}`                         | One authoritative active couple per user, written only with the couple transaction                         |
+| `invitations/{invitationId}`            | Creator, code digest, claimant, validity/consent/status; never a public code directory                     |
+| `couples/{coupleId}/content/{id}`       | Sender, type, private media reference, shared saved status, version, server timestamps, deletion tombstone |
+| `uploads/{uid}/items/{uploadId}`        | Private pending-media authorization/validation state and unfinished-upload cleanup                         |
+| `devices/{sha256(fid)}`                 | Owner-bound messaging installations, expiry; all client reads/writes denied                                |
+| `couples/{coupleId}/matches/{matchId}`  | Game participants, lifecycle, authoritative state/version; server-only mutation                            |
+| `.../matches/{matchId}/moves/{moveId}`  | Actor, action, sequence/version, idempotency key; immutable accepted moves                                 |
+| `operations/{uid}/requests/{requestId}` | Server-owned deduplication records scoped to user, operation, and request digest                           |
+| `deliveryEvents/{eventId}`              | Durable FCM work, recipient/resource/version, lease and retry state                                        |
+| `cleanupJobs/{jobId}`                   | Retryable storage/identity cleanup without restoring client access                                         |
 
 Use unguessable document IDs where appropriate and Firestore timestamps. IDs
 alone are not authorization. Do not put private media, passwords, email
@@ -55,7 +55,7 @@ the invariants in trusted code, and test retries/concurrency against the
 emulator. Admin SDK calls bypass rules; functions must check the authenticated
 caller (including anonymous guests), current membership, and lifecycle for every
 operation. Pairing must not require email/password, email verification, or
-Google linking. Linking preserves UID, so future memberships remain attached.
+Google linking. Linking preserves UID, so memberships remain attached.
 
 ## Content, memories, and games
 
@@ -83,3 +83,9 @@ exact UID lookup and needs no composite index. Future chronological galleries
 need scoped cursors and explicit composite indexes. Schema changes/backfills
 must remain compatible with old clients and must never temporarily broaden
 rules.
+
+Game rules/lifecycles and private `couples/{coupleId}/secrets/{matchId}` prompts
+are specified in [games](games.md). `preferences/{uid}` contains three
+owner-readable/server-written booleans, default false. Devices and delivery
+events are server-only. See [notifications/widgets](notifications-widgets.md)
+for leases, registration expiry, event retention and snapshot queries.

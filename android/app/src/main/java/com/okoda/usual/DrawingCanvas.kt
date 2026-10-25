@@ -39,6 +39,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.UUID
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 
 private data class DrawStroke(val points: List<Offset>, val color: Int, val width: Float)
 
@@ -66,7 +71,7 @@ fun DrawingCanvas(onPreview: (File) -> Unit) {
             TextButton(onClick = { if (strokes.isNotEmpty()) strokes.removeAt(strokes.lastIndex) }) { Text("Undo") }
             TextButton(onClick = { strokes.clear() }) { Text("Clear") }
         }
-        Canvas(Modifier.fillMaxWidth().aspectRatio(1f).background(Color.White).onSizeChanged { size = it }
+        Canvas(Modifier.widthIn(max = 300.dp).fillMaxWidth().aspectRatio(1f).align(Alignment.CenterHorizontally).semantics { contentDescription = "Drawing canvas" }.background(Color.White).onSizeChanged { size = it }
             .pointerInput(color, pen, eraser, size) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)

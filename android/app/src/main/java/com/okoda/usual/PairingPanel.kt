@@ -22,12 +22,17 @@ import java.text.DateFormat
 import java.util.Date
 
 @Composable
-fun PairingPanel(model: CoupleViewModel) {
+fun PairingPanel(model: CoupleViewModel, compact: Boolean = false) {
     val ui by model.state.collectAsStateWithLifecycle()
     val state = ui.couple
     var entered by remember(ui.uid) { mutableStateOf("") }
     var confirmation by remember(ui.uid) { mutableStateOf<String?>(null) }
     val context = LocalContext.current
+    if (compact && state.status == "paired") {
+        Text("Together with " + state.partnerName, style = MaterialTheme.typography.titleMedium)
+        if (state.cached) Text("Offline · last confirmed pairing. Sends will retry when connected.")
+        return
+    }
     Text("Your space for two", style = MaterialTheme.typography.titleLarge)
     when (state.status) {
         "loading" -> Text("Checking your pairing…")
@@ -40,7 +45,7 @@ fun PairingPanel(model: CoupleViewModel) {
             if (code != null) {
                 Text(code.chunked(4).joinToString("-"), style = MaterialTheme.typography.titleMedium)
                 TextButton(onClick = {
-                    val clip = ClipData.newPlainText("Usual pairing code", code)
+                    val clip = ClipData.newPlainText("Private pairing code", code)
                     clip.description.extras = PersistableBundle().apply { putBoolean("android.content.extra.IS_SENSITIVE", true) }
                     (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(clip)
                 }) { Text("Copy private code") }
@@ -67,11 +72,11 @@ fun PairingPanel(model: CoupleViewModel) {
     state.error?.let { Text(it) }
     ui.notice?.let { Text(it) }
     TextButton(onClick = model::refresh, enabled = !ui.busy) { Text("Refresh pairing") }
-    TextButton(onClick = { confirmation = "delete" }, enabled = !ui.busy) { Text("Delete my Usual identity") }
+    TextButton(onClick = { confirmation = "delete" }, enabled = !ui.busy) { Text("Delete my identity") }
     confirmation?.let { action ->
         AlertDialog(
             onDismissRequest = { confirmation = null },
-            title = { Text(when (action) { "pair" -> "Pair with this person?"; "unpair" -> "Unpair and delete shared data?"; else -> "Delete your Usual identity?" }) },
+            title = { Text(when (action) { "pair" -> "Pair with this person?"; "unpair" -> "Unpair and delete shared data?"; else -> "Delete your identity?" }) },
             text = { Column { Text(when (action) {
                 "pair" -> "Confirm with your partner outside the app that this is their request. Only the two of you will share this space."
                 "unpair" -> "Both people immediately lose access to this couple. All its shared content and games will be scheduled for deletion."

@@ -85,8 +85,8 @@ files; ignore rules are a convenience, not a security boundary.
 
 Never enable emulator trust in live/release variants. Use only `demo-` projects
 and local endpoints for tests. Admin SDK operations bypass Security Rules and
-require explicit authorization in future trusted functions. Do not log full SDK
-errors, credentials, request bodies, or private user data. See
+require explicit authorization in trusted functions. Do not log full SDK errors,
+credentials, request bodies, or private user data. See
 [privacy](docs/privacy.md).
 
 ## Documentation map
@@ -97,7 +97,8 @@ errors, credentials, request bodies, or private user data. See
   and live/emulator instructions.
 - [Domain](docs/domain.md), [API](docs/api.md), and [privacy](docs/privacy.md):
   current behavior and future invariants.
-- [Branding](docs/branding.md): build-time branding is still a separate task.
+- [Branding](docs/branding.md): environment/local build branding and asset
+  rules.
 - [Roadmap](docs/roadmap.md): issues, milestones, remaining decisions, and
   evidence.
 
@@ -111,3 +112,26 @@ operation, since Admin bypasses Security Rules. No invite codes/request bodies
 or raw SDK errors are logged. Run callable integration tests with Auth,
 Firestore, and Functions emulators and GCLOUD_PROJECT=demo-usual. Never enable
 emulator trust in a live project.
+
+## Branding and device checks
+
+With JDK 21+ and Android SDK 36/build-tools 36.0.0, run
+`ANDROID_HOME=/path/to/android-sdk npm run test:branding`. It rebuilds emulator
+APKs with a synthetic custom logo/name, checks packaged resources and stable ID,
+rejects invalid configuration, then restores the default build. No live Firebase
+credentials are needed. CI runs this check. See [branding](docs/branding.md).
+
+For two installations on one Android emulator, build
+`:app:assembleEmulatorDebug` and install its APK, then rebuild with
+`-PpartnerEmulator=true` and install the second APK. Their IDs are
+`com.okoda.usual.emulator` and `com.okoda.usual.emulator.partner`; the live ID
+remains `com.okoda.usual`. Start Auth, Firestore, Functions and Storage
+emulators with project `demo-usual`. Notification delivery itself needs a live
+build with Google Play services; demo mode never sends real FCM messages. Run
+live checks only against deliberately created, test-owned identities/resources
+and delete those fixtures afterward.
+
+Verify pairing confirmation, drawing/photo preview/send/retry, gallery/save/
+delete, game restart/reconnect, notification permission denial, deep links and
+both launcher widgets. Record actual device/build/results and limitations in the
+PR; compilation alone does not prove these interactions.

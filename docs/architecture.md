@@ -13,7 +13,7 @@ retired.
 - Identity: anonymous Firebase Authentication for guest-first access, optional
   Google credential linking/recovery, and SDK-managed sessions. Existing
   email/password accounts retain an optional sign-in/reset path. No email
-  verification is required for guest use or future pairing.
+  verification is required for guest use or pairing.
 - Database: Cloud Firestore Standard edition, `(default)`, São Paulo
   (`southamerica-east1`) in the existing `getusualapp` project.
 - Authorization: version-controlled Firestore Security Rules, strict document
@@ -21,10 +21,10 @@ retired.
 - Build: pinned Gradle wrapper with distribution SHA-256, Android Gradle plugin,
   version catalog, separate live/emulator flavors, and least-privilege CI.
 
-Authentication, private profiles, trusted pairing, unpairing and identity
-deletion are implemented. [docs/firebase.md](firebase.md) defines their exact
-collection contract, setup, environments, and verification. There is no custom
-API server or PostgreSQL.
+Guest access, profiles, pairing/lifecycle, content/media, saved memories, both
+games, notifications and widgets are implemented.
+[docs/firebase.md](firebase.md) defines their exact collection contract, setup,
+environments, and verification. There is no custom API server or PostgreSQL.
 
 ## Why the backend changed
 
@@ -48,7 +48,7 @@ Use cohesive Android feature/data packages as features arrive, without a generic
 repository framework. This small foundation has one repository interface to test
 UI state against a fake, and a Firebase implementation used by the application.
 
-| Logical module   | Planned Firebase responsibility                                   |
+| Logical module   | Firebase responsibility                                           |
 | ---------------- | ----------------------------------------------------------------- |
 | Identity/pairing | Auth identities, private profiles, invitation/couple transactions |
 | Content/memories | Firestore metadata and one shared saved status per item           |
@@ -63,11 +63,12 @@ contract, idempotency, transaction limits, authorization, and cost review before
 deployment. Do not give clients write access to membership or authoritative game
 state to avoid writing those operations.
 
-Firestore listeners will provide live state synchronization instead of a bespoke
-Go WebSocket service. Reconnection still requires an authorized current
-snapshot; notifications remain refresh signals, not authoritative state.
-Photo/drawing bytes do not belong in Firestore documents. Storage and FCM follow
-in the next milestones.
+Firestore listeners provide live state synchronization instead of a bespoke Go
+WebSocket service. Reconnection still requires an authorized current snapshot;
+notifications remain refresh signals, not authoritative state. Photo/drawing
+bytes do not belong in Firestore documents. Storage keeps processed media
+private; FCM delivers refresh signals from a transactional outbox. Glance
+widgets use fresh authorization and WorkManager.
 
 The approved shared-content deletion lifecycle remains unchanged. See
 [domain](domain.md), [privacy](privacy.md), and [roadmap](roadmap.md). Rules and

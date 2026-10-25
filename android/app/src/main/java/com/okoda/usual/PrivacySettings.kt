@@ -1,5 +1,7 @@
 package com.okoda.usual
 
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.Manifest
 import android.os.Build
 import android.content.Intent
@@ -38,6 +40,11 @@ fun PrivacySettings(controller: PrivacyController) {
     Row { Checkbox(state.widgetPreview, { controller.set(widget = it) }, enabled = state.ready && !state.busy); Text("Show received photos/drawings in memory widget") }
     Text("Widget previews are visible to anyone using your home screen. A launcher can retain a preview while offline; turn previews off before sharing your device.")
     Text("Add Memory or Quick actions from your Android launcher’s widget picker.")
+    val widgets = AppWidgetManager.getInstance(context)
+    if (widgets.isRequestPinAppWidgetSupported) {
+        TextButton(onClick = { widgets.requestPinAppWidget(ComponentName(context, MemoryWidgetReceiver::class.java), null, null) }) { Text("Add memory widget") }
+        TextButton(onClick = { widgets.requestPinAppWidget(ComponentName(context, QuickActionWidgetReceiver::class.java), null, null) }) { Text("Add quick-action widget") }
+    }
     TextButton(onClick = controller::refreshWidgets) { Text("Refresh widgets") }
     state.notice?.let { Text(it) }
 }

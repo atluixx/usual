@@ -52,3 +52,6 @@ android/captures/
 
 # Firebase functions output
 functions/lib/
+
+# Per-developer build-time branding
+/branding.local.properties

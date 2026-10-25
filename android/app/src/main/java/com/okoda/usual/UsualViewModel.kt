@@ -42,7 +42,7 @@ class UsualViewModel(private val repository: UsualRepository) : ViewModel() {
             val token = acquireIdToken()
             if (mutableState.value.account?.uid != uid) return@runAction
             repository.linkGoogle(uid, token)
-            show("Google linked. Your Usual profile stays the same and can be recovered on another device.")
+            show("Google linked. Your profile stays the same and can be recovered on another device.")
         }
     }
 

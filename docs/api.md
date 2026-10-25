@@ -61,9 +61,9 @@ Use Firestore snapshot listeners for authorized live state. On reconnect,
 recover the current versioned snapshot and discard stale local assumptions.
 Listener updates do not prove another device displayed the content.
 
-FCM is a future delivery signal. Persist content/game state and durable delivery
-work before sending. Deduplicate events, retry failed sends with bounded
-backoff, revoke invalid device tokens, and recheck membership/preferences before
+FCM is a delivery signal. Persist content/game state and durable delivery work
+before sending. Deduplicate events, retry failed sends with bounded backoff,
+revoke invalid device tokens, and recheck membership/preferences before
 delivery. Provider acceptance is not device receipt. Missed pushes must recover
 through ordinary sync; notification permission denial must not block core
 features.
