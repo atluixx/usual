@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { randomBytes, createHash } from "node:crypto";
+import { setTimeout as delay } from "node:timers/promises";
 import { createRequire } from "node:module";
 import { initializeApp, deleteApp } from "firebase/app";
 import {
@@ -8,6 +9,7 @@ import {
   connectAuthEmulator,
   signInAnonymously,
   signOut,
+  getIdTokenResult,
 } from "firebase/auth";
 import {
   getFunctions,
@@ -101,7 +103,16 @@ test("real callable protocol pairs two anonymous SDK users and denies unauthenti
     );
     await b.call("pair.end", { coupleId: result.coupleId, confirm: true });
     await assert.rejects(getDocFromServer(own));
+    // Firebase compares auth_time and revocation timestamps at whole-second
+    // precision. A same-second revocation is not strictly later than sign-in.
+    const { claims } = await getIdTokenResult(a.auth.currentUser);
+    const authenticatedAt = Number(claims.auth_time) * 1000;
+    await delay(Math.max(0, authenticatedAt + 1000 - Date.now()) + 25);
     await adminAuth().revokeRefreshTokens(a.auth.currentUser.uid);
+    const revoked = await adminAuth().getUser(a.auth.currentUser.uid);
+    assert.ok(
+      new Date(revoked.tokensValidAfterTime).getTime() > authenticatedAt,
+    );
     await assert.rejects(
       a.call("pair.create", { code: randomBytes(12).toString("hex") }),
       { code: "functions/unauthenticated" },
