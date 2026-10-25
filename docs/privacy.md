@@ -1,150 +1,107 @@
 # Privacy and content lifecycle
 
-The owner approved shared saved status, deletion for both partners, and deletion
-of old couple data after unpairing/account deletion. The backend is now Firebase
-Auth + Firestore. Identity, pairing, content and media lifecycle operations are
-implemented; game and notification/widget invalidation operations follow as
-separate milestones.
+Usual uses Firebase Authentication, Firestore and a private Storage bucket in
+`getusualapp`. Guest identities ask for no email/password. Optional Google
+linking preserves the UID and provides recovery; it does not copy media to
+Google Drive. Reinstalling/clearing an unlinked guest installation may lose
+access. Legacy email sign-in is retained. No passwords or Google credentials are
+stored by application code. Anonymous-account automatic cleanup must remain
+disabled. Transport/provider encryption is not end-to-end encryption.
 
-## Current access
+## Access and lifecycle
 
-Firebase Auth manages anonymous identities, optional Google credentials, legacy
-email/password credentials, and session tokens. Passwords never enter Firestore,
-logs, saved form state, or analytics. Authentication does not grant access to
-other users' resources.
+- A user can read/write only their own bounded profile. Their preferences and
+  pairing state are exact owner reads with trusted writes. Profiles are not a
+  public directory. Partner names are bounded snapshots in their couple.
+- Invitations require a valid, unexpired, unused code plus explicit creator
+  confirmation of the claimant. An active couple has two distinct members;
+  transactions serialize claims/confirmation and conflicting membership.
+- Only current members of that active couple may read its nondeleted content,
+  matches or moves. Secret prompts, devices, delivery events, upload permits and
+  authoritative writes are denied to Firestore clients. Trusted operations
+  repeat authorization because Admin SDKs bypass Security Rules.
+- Saved status is shared on the original item. Either partner can save/unsave.
+  Either can delete an item for both: a tombstone denies reads immediately and
+  durable cleanup removes its media/document. Exchanged content has no automatic
+  expiry. Saving never protects an item from deletion.
+- Unpairing closes the couple and clears both memberships before cleanup. Old
+  content, games and media become inaccessible; all old-couple objects,
+  subcollections and delivery events are scheduled for deletion. There is no
+  archive or transfer into a new couple. Each identity and its avatar remain.
+- Account deletion first tombstones the identity, closes any couple and revokes
+  membership. It revokes Auth sessions/deletes Auth, then retries profile,
+  avatar, staging, preferences, operation receipts and device deletion. The
+  partner's identity remains. A denied account tombstone lasts 30 days; old ID
+  tokens expire sooner. Anonymous spent invitation digests remain to prevent
+  code reuse without retaining participant names/UIDs.
+- Content/game submissions use actor-bound stable request IDs and transactional
+  receipts. Retries cannot retarget a draft to a new identity or couple. Games
+  are validated by the server, with version conflicts and participant/turn
+  checks. See [game rules](games.md).
 
-The only allowed Firestore path is the caller's exact `users/{uid}` profile. It
-contains a bounded display name, immutable UID/creation time, server update
-time, and schema version. No email, role, couple membership, or arbitrary
-fields. Clients cannot list profiles, delete them, read another user's profile,
-or access any other collection/subcollection. Both creates and updates validate
-the full schema.
+Destructive actions explain the shared effect and require confirmation. Access
+revocation is immediate at the authoritative commit; physical deletion is
+asynchronous. Maintenance runs every five minutes with bounded batches and retry
+backoff. A provider outage or backlog can delay physical cleanup.
 
-The Android profile cache is memory-only. Logout/identity changes remove
-listeners and displayed data. Cached/pending snapshots are labelled; refresh
-uses the server. Android backup is disabled. Password inputs are transient and
-cleared on submission. Auth persists sessions through its own SDK storage, not
-custom token files. Emulator configuration is isolated from live builds and has
-no release variant.
+## Media and Android caches
 
-Guest use asks for no email, password, or verification. Google linking is
-optional and preserves the Firebase UID; Google tokens exist only during the
-credential/link operation and are not stored by app code or copied to Firestore.
-A credential collision never merges/switches accounts. Existing email users
-retain their sign-in/reset path and can also link Google without changing UID.
+Processed private objects have no client Storage access or permanent download
+URL. Authorized API responses recheck access before and after loading bytes.
+Staging permits last 15 minutes, bind owner/checksum/size/kind/couple and cap
+outstanding uploads at 20. Actual image bytes, dimensions and checksums are
+validated; JPEG/PNG are re-encoded to strip metadata, with a 4 MiB cap. The
+bounded 48-hour orphan sweep never expires retained exchange history.
 
-An unlinked guest may lose access after clearing app data, reinstalling, or
-losing the device. The app explains recovery limits without blocking use. There
-is no guest sign-out action, automatic guest deletion, or automatic Firebase
-anonymous-account cleanup configuration. Anonymous identities must remain valid
-for the same lifetime as their future couple data; do not enable 30-day Auth
-cleanup. Linking Google is recovery, not a copy/export of media to Google Drive.
+The Android Photo Picker/camera supplies only a selected image. A preview
+precedes submission. Private received images and Firestore data use memory
+caches. The atomic pending-send outbox uses private files bound to the original
+UID/couple. Android backups/device transfer are disabled. Identity changes and
+observed membership loss clear private UI, drafts, work, images and
+notifications. Deletion removes an observed item from the gallery; old in-memory
+bytes are cleared as the gallery changes. No media is exported automatically.
 
-Pairing remains unimplemented in this build. Its contract must accept two
-distinct anonymous identities with explicit consent and current membership
-checks. Google/email verification must not become a shared-resource access gate.
+## Notifications and widgets
 
-## Approved future lifecycle
+Preferences default off and belong to each user. Notification permission denial
+does not block any core feature. Delivery events are transactional; FCM carries
+only recipient/event IDs. The server and receiving worker recheck current
+membership, preferences and resource/version. Invalid devices are pruned; events
+expire after seven days and idle device registrations after 30 days. Before
+sign-out the app attempts unregistering, then deletes/regenerates its messaging
+installation for identity changes. Offline removal may need retry, but recipient
+checks prevent another identity from displaying that message.
 
-| Action            | Required authoritative effect                                                                                                                  |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Save/unsave       | Update shared saved status on the existing content document; retain history and media                                                          |
-| Delete an item    | Deny reads for both, record a tombstone and durable cleanup work, cancel obsolete notifications                                                |
-| Unpair            | Close the couple, revoke both memberships/invitations, cancel games, deny old-couple access, schedule deletion of all couple content/game data |
-| Delete an account | Deny local/shared resource access first, perform unpairing if needed, revoke devices/tokens, and retry Auth/profile/media deletion             |
+Opt-in memory widgets show only eligible received photos/drawings after a fresh
+server check. They do not save private image files; refresh failure is neutral.
+Quick actions open the full app. Glance/WorkManager refresh on supported
+callbacks, periodic work, received signals and observed changes. Old deep links
+recheck current pairing and server authorization. Details and protocol:
+[notifications and widgets](notifications-widgets.md).
 
-UI must explain and confirm destructive actions. Saved status never protects an
-item from deletion. Exchanged content has no automatic expiry. Unpairing leaves
-the other user's identity intact, with no old-couple archive or transfer to a
-new couple. Pending sends must never be retargeted to a new partner.
+A server cannot recall downloaded bytes, screenshots, or pixels retained by an
+offline launcher. Android/FCM do not guarantee immediate execution. The preview
+opt-in explains this exposure. Revocation prevents new authorized reads; do not
+promise instant remote erasure of pixels already shown on another device.
 
-Firestore does not support an unbounded atomic delete of every document. Future
-trusted operations must make one authoritative lifecycle/access change first,
-then run bounded idempotent cleanup batches. Rules must consult current active
-membership/lifecycle for access; deleting child documents alone is insufficient.
-Admin SDK functions bypass rules and must check caller permissions themselves.
-No account-deletion or unpair operation is advertised as available in this
-build.
+## Provider retention and logs
 
-## Future media, devices, and delivery
+No app-managed database backups, exports, object versions, or restore job are
+provisioned by this repository. Provider soft-delete/backup retention must be
+verified in the project before external testing; successful object deletion
+requests are not proof of deletion from provider recovery copies. Any future
+restore must reapply deletion/revocation state before serving traffic. A backup
+restore has not been tested and is not an accepted MVP criterion.
 
-Photos/drawings must use private storage, not Firestore blobs or public
-tokenized download URLs. Bound file size/decoded dimensions, validate/re-encode
-allowed formats, and strip metadata. Partners cannot read pending uploads.
-Tombstones and membership changes deny new reads before eventual object cleanup;
-failed deletion retries must not restore access. No bucket/media upload is
-provisioned here.
+Application logs contain only fixed error codes/aggregate diagnostics, never
+passwords, tokens/FIDs, invitation codes, emails, media, object URLs, prompts,
+guesses or request/response bodies. Restrict access to provider operational
+logs; no custom retention override is deployed. Release R8 removes Android Log
+calls, including SDK calls; raw debug logcat can contain SDK identifiers and
+stays private. No Analytics or Crashlytics SDK is installed.
 
-Use generic notification text and opaque IDs/versions, with no private previews,
-prompts, guesses, invite codes, or message bodies. Persist authoritative state
-before FCM; recheck membership/deletion/preferences at delivery and receipt.
-Stable local IDs and reconciliation remove obsolete notifications. Notification
-permission is optional. Logouts revoke that installation's device registration;
-account deletion revokes every installation. Tokens cannot silently move owners.
-
-Widget previews default to hidden. Opt-in previews must revalidate membership,
-visibility, and content state before giving media to a launcher. Use supported
-Glance/WorkManager mechanisms and neutral states when revalidation fails. Revoke
-old URI grants and clear local caches on observed deletion or membership loss.
-
-A server cannot recall downloaded bytes, screenshots, or pixels held by an
-offline launcher. FCM and Android background work do not guarantee immediate
-execution. Do not promise immediate remote erasure, exact widget deadlines, or
-offline cache revocation. Document and test this exposure before enabling
-previews. Quick actions open full authenticated application screens.
-
-## Backups and logs
-
-Before external testing, select/disclose backup, object, tombstone, and log
-retention windows plus deletion targets. Restores must reapply
-lifecycle/deletion tombstones before serving traffic. Clean replicas/object
-versions as appropriate. Do not claim immediate deletion from backups. Current
-database creation does not establish a tested backup/restore policy.
-
-Logs may contain safe error codes, request IDs, status/duration, and aggregate
-metrics. Exclude passwords, tokens, invite codes, email addresses, object URLs,
-private media, prompts, guesses, and full request/response bodies. Restrict
-access. Release builds remove Android Log calls through R8, including dependency
-calls. Debug Firebase SDK diagnostics can contain account identifiers; keep raw
-logcat private and use emulator fixtures. The application does not install
-Analytics or Crashlytics in this milestone.
-
-## Required evidence
-
-Current emulator tests cover owner-only profile access, unauthenticated and
-cross-user reads/writes, collection listing, ownership/timestamp/schema
-tampering, oversized/invalid fields, and unknown/subcollection denial. Android
-state tests cover failures/retries, duplicate submits, and clearing old identity
-state.
-
-Future tests must use two different couples and substitute content/media/match/
-invitation IDs, attempt unauthorized listener subscriptions and actions, and
-verify revoked/deleted identities, unpairing during work, stale
-notifications/widgets, durable deletion retries, and restore safety before those
-features are released.
-
-## Implemented media and device cache behavior
-
-Only server-authorized current members can read nondeleted content. Media
-responses require authorization both before and after loading bytes. Processed
-objects have no client Storage permission or permanent public URL. Upload
-permits last 15 minutes, bind owner/checksum/size/kind/couple, and cap
-outstanding uploads at 20 per identity. Server validation rejects other formats,
-oversized/unsafe images and checksum mismatches, then strips metadata by
-re-encoding.
-
-The client uses the Android Photo Picker or an explicitly launched camera,
-copies only its selected image, and previews before sending. Received pixels are
-held in memory. The pending-send outbox is private, atomic, excluded from
-backups and bound to the original UID/couple. UID changes and observed unpairing
-cancel the corresponding work and clear local state; an offline remote deletion
-cannot recall previously downloaded bytes before revalidation. The API checks an
-actor binding to prevent a token change from sending a queued draft as another
-member.
-
-History and saved status remain distinct. Either member saves/unsaves the same
-item; either deletes it for both. Tombstones deny reads immediately and durable
-jobs remove media/documents. Completed content has no automatic expiry. Owner
-avatars remain with their identity after unpairing and are available to a new
-partner only through new active membership; account deletion removes avatars.
-Staging/orphan sweep uses bounded pages and 48-hour cleanup, not history expiry.
+The [rules audit](security-audit.json) and negative emulator tests cover
+ownership, field/type/size tampering, unknown writes, private queries,
+cross-couple IDs, revoked identities, stale actions, prompt secrecy and upload
+boundaries. Tests and remaining device/provider limitations are recorded in the
+roadmap and PRs.

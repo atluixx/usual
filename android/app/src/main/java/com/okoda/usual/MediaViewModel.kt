@@ -47,6 +47,8 @@ class MediaViewModel(private val app: UsualApplication, pairing: StateFlow<Pairi
         stopGallery = app.media.observeGallery(coupleId, current.savedOnly, cursor) { gallery ->
             if (mutable.value.uid == uid && mutable.value.coupleId == coupleId) {
                 mutable.update { it.copy(gallery = gallery) }
+                app.media.clearImages()
+                app.privacy.refreshWidgets()
                 val ids = gallery.items.filter { it.receiverUid == uid && !it.received && it.id !in acknowledging }.map { it.id }
                 if (ids.isNotEmpty()) {
                     acknowledging.addAll(ids)

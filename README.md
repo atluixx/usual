@@ -19,7 +19,8 @@ Early development: an Android app with a private Firebase backend.
   retryable sends.
 - **Remember:** Shared history, saved memories, details, and deletion for both.
 - **Play:** Persistent Draw & Guess and live, server-validated tic-tac-toe.
-- **Planned:** Widgets and notifications.
+- **At a glance:** Optional private FCM updates, received-memory widgets, and
+  drawing/photo/game shortcuts.
 
 See the [roadmap](docs/roadmap.md) for feature and verification status.
 

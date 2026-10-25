@@ -20,6 +20,8 @@ class UsualApplication : Application() {
         private set
     lateinit var media: MediaRepository
         private set
+    lateinit var privacy: PrivacyController
+        private set
     private var session: PrivateSession? = null
 
     override fun onCreate() {
@@ -45,6 +47,7 @@ class UsualApplication : Application() {
         couples = CoupleRepository(this, database, backend)
         outbox = OutboxStore(this)
         media = MediaRepository(database, backend)
+        privacy = PrivacyController(this, auth, database)
         session = PrivateSession(this, auth, database)
     }
 }
