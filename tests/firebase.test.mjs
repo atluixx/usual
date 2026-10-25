@@ -392,6 +392,30 @@ test("games are couple-private, prompt documents and authoritative writes are de
   await assertFails(getDoc(doc(bob, "couples/game-couple/matches/match")));
 });
 
+test("privacy preferences are owner-readable and all preferences/devices/events require trusted writes", async () => {
+  await environment.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), "preferences/alice"), {
+      widgetPreview: true,
+    });
+    await setDoc(doc(context.firestore(), "devices/private-token"), {
+      uid: "alice",
+      token: "not-a-real-token",
+    });
+  });
+  const alice = ownerDb();
+  const bob = environment.authenticatedContext("bob").firestore();
+  await assertSucceeds(getDoc(doc(alice, "preferences/alice")));
+  await assertFails(getDoc(doc(bob, "preferences/alice")));
+  await assertFails(
+    updateDoc(doc(alice, "preferences/alice"), { widgetPreview: false }),
+  );
+  await assertFails(getDocs(collection(alice, "preferences")));
+  await assertFails(getDoc(doc(alice, "devices/private-token")));
+  await assertFails(
+    setDoc(doc(alice, "deliveryEvents/forged"), { recipientUid: "bob" }),
+  );
+});
+
 test("email/password identity persists a private profile across sign-out/sign-in", async () => {
   const app = initializeApp(
     { projectId, apiKey: "fake-emulator-api-key" },

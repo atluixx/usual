@@ -73,6 +73,10 @@ service cloud.firestore {
       allow get: if isOwner(userId);
       allow list, write: if false;
     }
+    match /preferences/{userId} {
+      allow get: if isOwner(userId);
+      allow list, write: if false;
+    }
     match /invitations/{invitationId} {
       allow get: if isAuthenticated()
         && (resource.data.creatorUid == request.auth.uid

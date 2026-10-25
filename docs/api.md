@@ -71,3 +71,9 @@ features.
 Future galleries need authorized, bounded, ordered queries/cursors. Future
 private media access must revalidate membership/deletion and avoid permanent
 public bearer download URLs. No media or game API is exposed in this milestone.
+
+Game operations, versions, roles and invitation/cancellation rules are defined
+in [games.md](games.md). Device registration (`fid`), preferences, notification
+resolution and the fresh widget snapshot contract are defined in
+[notifications-widgets.md](notifications-widgets.md). These all use the same
+versioned, actor-bound callable envelope and current-membership authorization.

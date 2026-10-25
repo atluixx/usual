@@ -1,0 +1,13 @@
+{
+  "score": 5,
+  "summary": "Firestore and Storage rules enforce owner identity, server-owned couple membership, bounded private queries, immutable authoritative resources and permit-bound staging uploads. Auth/Firestore negative tests and Storage emulator tests exercise the reviewed boundaries. This is an application-rules review, not a penetration test of Firebase infrastructure or an end-to-end encryption claim.",
+  "findings": [],
+  "checks": {
+    "update_bypass": "Profile creates and updates share an exact schema/type/size validator; updates restrict changes to displayName and updatedAt with immutable UID/createdAt. All couple/content/game/device/preference client writes are denied.",
+    "authority_source": "Access derives from authenticated UID, server-only account tombstones, own membership and the active two-member couple document. No client role or supplied couple ID grants access.",
+    "business_logic": "Both current partners can read bounded content/game queries. Only the owner reads their profile/preferences/pairing; invitation participants use exact reads. Prompt secrets, notification events, device registrations and private processed storage are client-denied.",
+    "resource_exhaustion": "Profile fields and query limits are bounded. Pending uploads require a short-lived server-issued quota-bound permit, exact declared size, allowed MIME, checksum metadata and 4 MiB cap. The trusted finalizer validates actual bytes and dimensions. Rules do not replace API rate limiting or project quotas.",
+    "type_safety": "Client profile writes validate all fields, types, bounds, schema version and request-time timestamps. Other schema writes occur only through the validated trusted API.",
+    "identity_level_security": "Profile/preference ownership and server-verified membership accompany field restrictions. Changing identifiers cannot make another couple's resources accessible. Storage staging binds the authenticated owner and a server-owned permit; it cannot expose processed private media."
+  }
+}

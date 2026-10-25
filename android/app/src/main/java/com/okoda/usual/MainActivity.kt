@@ -1,6 +1,7 @@
 package com.okoda.usual
 
 import android.os.Bundle
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -47,9 +48,13 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    private var destination by mutableStateOf<AppDestination?>(null)
+    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); destination = AppDestination.parse(intent.dataString) }
+    override fun onResume() { super.onResume(); (application as UsualApplication).privacy.permissionChanged(); (application as UsualApplication).privacy.refreshWidgets() }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        destination = AppDestination.parse(intent.dataString)
         val repository = (application as UsualApplication).repository
         val couples = (application as UsualApplication).couples
         setContent {
@@ -59,9 +64,12 @@ class MainActivity : ComponentActivity() {
             val gameModel = viewModel { GameViewModel((application as UsualApplication).backend, coupleModel.state) }
             val state by model.state.collectAsStateWithLifecycle()
             MaterialTheme {
-                UsualScreen(state, model, coupleModel, mediaModel, gameModel, (application as UsualApplication).media, acquireGoogleToken = { googleIdToken(this) }, onSignOut = {
-                    model.signOut()
-                    lifecycleScope.launch { clearGoogleCredentialState(this@MainActivity) }
+                UsualScreen(state, model, coupleModel, mediaModel, gameModel, (application as UsualApplication).media, (application as UsualApplication).privacy, destination, { destination = null }, acquireGoogleToken = { googleIdToken(this) }, onSignOut = {
+                    lifecycleScope.launch {
+                        (application as UsualApplication).privacy.beforeSignOut()
+                        model.signOut()
+                        clearGoogleCredentialState(this@MainActivity)
+                    }
                 })
             }
         }
@@ -76,12 +84,31 @@ private fun UsualScreen(
     mediaModel: MediaViewModel,
     gameModel: GameViewModel,
     media: MediaRepository,
+    privacy: PrivacyController,
+    destination: AppDestination?,
+    consumedDestination: () -> Unit,
     acquireGoogleToken: suspend () -> String,
     onSignOut: () -> Unit,
 ) {
     var tab by remember(state.account?.uid) { mutableStateOf("Connect") }
     val pairing by coupleModel.state.collectAsStateWithLifecycle()
     val pending by mediaModel.outbox.collectAsStateWithLifecycle()
+    val mediaState by mediaModel.state.collectAsStateWithLifecycle()
+    val gameState by gameModel.state.collectAsStateWithLifecycle()
+    var quickAction by remember(state.account?.uid, pairing.couple.coupleId) { mutableStateOf<String?>(null) }
+    var routeNotice by remember(state.account?.uid) { mutableStateOf<String?>(null) }
+    LaunchedEffect(destination, state.account?.uid, pairing.couple, mediaState.coupleId, gameState.coupleId) {
+        val route = destination ?: return@LaunchedEffect
+        if (state.account == null || pairing.uid != state.account.uid || pairing.couple.status == "loading") return@LaunchedEffect
+        if (route.coupleId != null && route.coupleId == pairing.couple.coupleId && (mediaState.coupleId != route.coupleId || gameState.coupleId != route.coupleId)) return@LaunchedEffect
+        if (route.coupleId != null && route.coupleId != pairing.couple.coupleId) routeNotice = "This shared item is no longer available to this pairing."
+        else when (route.type) {
+            "content" -> { tab = "Memories"; route.resourceId?.let(mediaModel::select) }
+            "game" -> { tab = "Play"; route.resourceId?.let(gameModel::select) }
+            "draw", "photo" -> { tab = "Connect"; quickAction = route.type }
+        }
+        consumedDestination()
+    }
     Scaffold(bottomBar = {
         if (state.account != null) NavigationBar {
             listOf("Connect", "Play", "Memories", "Settings").forEach { destination ->
@@ -95,6 +122,7 @@ private fun UsualScreen(
                 Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineLarge)
             }
             Spacer(Modifier.height(12.dp))
+            routeNotice?.let { Text(it) }
             val account = state.account
             if (account == null) {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
@@ -110,6 +138,7 @@ private fun UsualScreen(
                         ProfileForm(account, state, model, acquireGoogleToken, onSignOut)
                         PrivateImage(media, null, account.uid, avatar = true, version = pending.count { it.uid == account.uid && it.kind == "AVATAR" })
                         ContentComposer(mediaModel, avatar = true)
+                        PrivacySettings(privacy)
                         PairingPanel(coupleModel)
                         state.notice?.let { Text(it) }
                     }
@@ -117,7 +146,7 @@ private fun UsualScreen(
                         PairingPanel(coupleModel)
                         TextButton(onClick = { tab = "Settings" }) { Text("Your name and optional Google recovery") }
                         PendingSends(mediaModel)
-                        if (pairing.couple.coupleId != null) ContentComposer(mediaModel)
+                        if (pairing.couple.coupleId != null) androidx.compose.runtime.key(quickAction) { ContentComposer(mediaModel, startAction = quickAction) }
                     }
                 }
             }

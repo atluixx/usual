@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="memory_widget_name">Memory</string>
+    <string name="quick_widget_name">Quick actions</string>
+    <string name="memory_widget_description">Your latest received photo or drawing, when previews are enabled.</string>
+    <string name="quick_widget_description">Open drawing, photo sharing or a game.</string>
     <string name="app_name">Usual</string>
 </resources>

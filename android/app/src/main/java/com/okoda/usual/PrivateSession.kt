@@ -20,6 +20,7 @@ class PrivateSession(private val app: UsualApplication, auth: FirebaseAuth, data
                 app.outbox.clear(old)
             }
             app.media.clearImages()
+            app.privacy.hidePreviews()
             clearDrafts()
             (app.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancelAll()
         }
@@ -34,7 +35,7 @@ class PrivateSession(private val app: UsualApplication, auth: FirebaseAuth, data
             app.outbox.items.value.filter { it.uid == uid && it.state != "Failed" }.forEach { scheduleSend(app, it) }
             membership = database.collection("pairing").document(uid).addSnapshotListener(MetadataChanges.INCLUDE) { document, error ->
                 if (auth.currentUser?.uid != uid) return@addSnapshotListener
-                if (error != null) { app.media.clearImages(); return@addSnapshotListener }
+                if (error != null) { app.media.clearImages(); app.privacy.hidePreviews(); return@addSnapshotListener }
                 if (document == null || document.metadata.isFromCache) return@addSnapshotListener
                 val coupleId = document.getString("coupleId")
                 val old = settings.getString(uid + "_couple", null)
@@ -42,6 +43,7 @@ class PrivateSession(private val app: UsualApplication, auth: FirebaseAuth, data
                     WorkManager.getInstance(app).cancelAllWorkByTag("couple:" + old)
                     app.outbox.clear(uid, old)
                     app.media.clearImages()
+                    app.privacy.hidePreviews()
                     clearDrafts()
                     (app.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancelAll()
                 }

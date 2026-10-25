@@ -270,7 +270,14 @@ export function closeCouple(
     status: "closed",
     updatedAt: now(),
   });
-  for (const member of members) clearState(tx, member);
+  for (const member of members) {
+    clearState(tx, member);
+    tx.set(
+      db.doc("preferences/" + member),
+      { widgetPreview: false, updatedAt: now() },
+      { merge: true },
+    );
+  }
   tx.set(db.doc("cleanupJobs/couple_" + coupleId), {
     kind: "couple",
     target: coupleId,

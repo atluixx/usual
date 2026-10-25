@@ -57,6 +57,22 @@ async function redactInvitations(field: string, value: string): Promise<void> {
   )
     throw new Error("Another cleanup batch is needed.");
 }
+async function removeMatching(
+  collection: string,
+  field: string,
+  value: string,
+): Promise<void> {
+  const entries = await db
+    .collection(collection)
+    .where(field, "==", value)
+    .limit(100)
+    .get();
+  if (entries.empty) return;
+  const batch = db.batch();
+  entries.docs.forEach((entry) => batch.delete(entry.ref));
+  await batch.commit();
+  if (entries.size === 100) throw new Error("Another cleanup batch is needed.");
+}
 
 export async function cleanup(): Promise<void> {
   await expireGameInvitations();
@@ -104,6 +120,7 @@ export async function cleanup(): Promise<void> {
     const data = job.data();
     try {
       if (data.kind === "couple") {
+        await removeMatching("deliveryEvents", "coupleId", data.target);
         await revokeCoupleUploads(data.target);
         if (
           !process.env.GCLOUD_PROJECT?.startsWith("demo-") ||
@@ -113,6 +130,8 @@ export async function cleanup(): Promise<void> {
         await redactInvitations("coupleId", data.target);
         await db.recursiveDelete(db.doc("couples/" + data.target));
       } else if (data.kind === "account") {
+        await removeMatching("devices", "uid", data.target);
+        await removeMatching("deliveryEvents", "recipientUid", data.target);
         try {
           await getAuth().deleteUser(data.target);
         } catch (cause) {

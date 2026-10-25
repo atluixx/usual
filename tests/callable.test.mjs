@@ -21,6 +21,9 @@ import {
   connectFirestoreEmulator,
   doc,
   getDocFromServer,
+  onSnapshot,
+  disableNetwork,
+  enableNetwork,
 } from "firebase/firestore";
 import {
   getStorage,
@@ -178,6 +181,23 @@ test("real anonymous SDK clients upload a drawing, retry one send, receive, save
       contentId: result.contentId,
     });
     assert.ok(Buffer.from(image.base64, "base64").length > 0);
+    await b.call("preferences.set", {
+      contentNotifications: true,
+      gameNotifications: true,
+      widgetPreview: true,
+    });
+    const snapshot = await b.call("widget.snapshot", {});
+    assert.equal(snapshot.contentId, result.contentId);
+    assert.ok(snapshot.base64);
+    assert.equal(
+      (await b.call("notification.resolve", { eventId: result.contentId }))
+        .resourceId,
+      result.contentId,
+    );
+    await assert.rejects(
+      a.call("notification.resolve", { eventId: result.contentId }),
+      { code: "functions/not-found" },
+    );
     await assert.rejects(
       getDownloadURL(
         ref(
@@ -205,6 +225,67 @@ test("real anonymous SDK clients upload a drawing, retry one send, receive, save
     await assert.rejects(
       a.call("content.media", { coupleId, contentId: result.contentId }),
       { code: "functions/not-found" },
+    );
+  } finally {
+    await Promise.all([a, b].map((value) => signOut(value.auth)));
+    await Promise.all([a, b].map((value) => deleteApp(value.app)));
+  }
+});
+
+test("two authenticated game SDK clients receive live moves and recover the authoritative snapshot after reconnect", async () => {
+  const a = client("game-alice"),
+    b = client("game-bob");
+  try {
+    await Promise.all([a, b].map((value) => signInAnonymously(value.auth)));
+    const code = randomBytes(12).toString("hex");
+    const invitation = await a.call("pair.create", { code });
+    await b.call("pair.claim", { code });
+    const { coupleId } = await a.call("pair.confirm", {
+      invitationId: invitation.invitationId,
+      confirm: true,
+    });
+    const { matchId } = await a.call("game.create", {
+      coupleId,
+      kind: "TICTACTOE",
+    });
+    const ids = { coupleId, matchId };
+    await b.call("game.accept", { ...ids, expectedVersion: 1 });
+    const reference = doc(
+      b.database,
+      "couples/" + coupleId + "/matches/" + matchId,
+    );
+    const updated = new Promise((resolve, reject) => {
+      let stop = () => {};
+      const timeout = setTimeout(() => {
+        stop();
+        reject(new Error("live snapshot timed out"));
+      }, 10_000);
+      stop = onSnapshot(
+        reference,
+        (snapshot) => {
+          if (snapshot.data()?.version === 3) {
+            clearTimeout(timeout);
+            stop();
+            resolve(snapshot.data());
+          }
+        },
+        (error) => {
+          clearTimeout(timeout);
+          reject(error);
+        },
+      );
+    });
+    await a.call("game.move", { ...ids, expectedVersion: 2, cell: 0 });
+    assert.equal((await updated).board[0], "X");
+    await disableNetwork(b.database);
+    await b.call("game.move", { ...ids, expectedVersion: 3, cell: 4 });
+    await enableNetwork(b.database);
+    const recovered = (await getDocFromServer(reference)).data();
+    assert.equal(recovered.version, 4);
+    assert.equal(recovered.board[4], "O");
+    await assert.rejects(
+      a.call("game.move", { ...ids, expectedVersion: 3, cell: 8 }),
+      { code: "functions/failed-precondition" },
     );
   } finally {
     await Promise.all([a, b].map((value) => signOut(value.auth)));

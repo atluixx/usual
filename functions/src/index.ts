@@ -1,6 +1,7 @@
 import { getAuth } from "firebase-admin/auth";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
+import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import * as functionsV1 from "firebase-functions/v1";
 import { error as logError } from "firebase-functions/logger";
 import {
@@ -19,6 +20,11 @@ import { content, avatar, visibleContent } from "./content.js";
 import { authorizeUpload, discardUpload } from "./uploads.js";
 import { activeAccount, activeCouple, db, id } from "./core.js";
 import { games } from "./games.js";
+import {
+  notifications,
+  dispatch,
+  retryNotifications,
+} from "./notifications.js";
 
 export async function execute(uid: string, input: unknown): Promise<Result> {
   const envelope = object(input);
@@ -36,6 +42,16 @@ export async function execute(uid: string, input: unknown): Promise<Result> {
   if (op.startsWith("pair.")) return pairing(uid, op, key, data);
   if (op.startsWith("content.")) return content(uid, op, key, data);
   if (op.startsWith("game.")) return games(uid, op, key, data);
+  if (
+    [
+      "preferences.set",
+      "device.register",
+      "device.unregister",
+      "notification.resolve",
+      "widget.snapshot",
+    ].includes(op)
+  )
+    return notifications(uid, op, key, data);
   if (op.startsWith("profile.avatar")) return avatar(uid, op, key, data);
   if (op === "media.authorize") return authorizeUpload(uid, data);
   if (op === "media.discard") return discardUpload(uid, data);
@@ -117,6 +133,18 @@ export const maintenance = onSchedule(
   },
   async () => {
     await cleanup();
+    await retryNotifications();
+  },
+);
+export const deliverEvent = onDocumentCreated(
+  {
+    document: "deliveryEvents/{eventId}",
+    region: "southamerica-east1",
+    maxInstances: 2,
+    concurrency: 1,
+  },
+  async (event) => {
+    await dispatch(event.params.eventId);
   },
 );
 export const identityDeleted = functionsV1
