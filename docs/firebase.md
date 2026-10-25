@@ -245,3 +245,40 @@ all four emulators for exchange testing. Live bucket setup is a separate
 one-time Console operation; publishing rules alone does not create a bucket. The
 owner confirmed São Paulo production-mode bucket setup, followed by a successful
 Storage/Firestore rules/index deployment.
+
+### Storage rules with Firestore permits
+
+The Storage service agent needs `roles/firebaserules.firestoreServiceAgent` to
+read the server-issued upload permits. On the first Storage deployment, use an
+interactive CLI deployment and accept that specific role when prompted:
+
+```sh
+npx -y firebase-tools@15.34.1 deploy --only storage --project getusualapp --interactive
+```
+
+CLI 15.34.1 skips this IAM check in noninteractive/agent mode. A rules
+deployment can therefore succeed while real uploads return
+`storage/unauthorized`. Agent-provisioned setups must deliberately run the
+interactive check; force mode may accept the standard role within an already
+authorized setup. Subsequent rules deployments can be noninteractive. Verify
+with a real SDK upload; an emulator does not prove the live service-agent
+binding. Private processed media remain denied to Storage clients. Cloud
+Functions Firestore triggers can also need a few minutes for a newly provisioned
+Eventarc service agent's standard permissions to propagate; retry the failed
+deployment after propagation.
+
+The checked-in Android emulator client uses a deliberately non-secret,
+valid-shaped dummy API key. The callable SDK's legacy Instance ID dependency
+validates key format before making a request; `fake-emulator-api-key` fails that
+check on Android. Keep the dummy project `demo-usual` and local emulator routes;
+never substitute production credentials or enable emulator trust in live builds.
+
+## Observed provider retention
+
+A read-only API check on 2026-10-25 confirmed `getusualapp.firebasestorage.app`
+is in `SOUTHAMERICA-EAST1`, with seven-day soft-delete retention and no object
+versioning, retention lock or lifecycle policy. The default Standard Firestore
+database is in `southamerica-east1`, with PITR disabled and no backup schedules.
+These settings were observed, not changed by this implementation. Deleting
+content revokes application access immediately; provider recovery copies can
+remain until their retention expires. See [privacy](privacy.md).

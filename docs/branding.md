@@ -1,56 +1,51 @@
-# Build-time branding plan
+# Build-time branding
 
-Status: **custom build-time branding not implemented**. The Android Gradle
-configuration now exists under `android/` with the default Usual name and a
-provisional vector icon. [Issue #3](https://github.com/atluixx/usual/issues/3)
-tracks the smallest Android branding implementation. The Firebase foundation
-introduces the shell separately. `assets/logo.svg` is a provisional README mark,
-not a generated launcher icon.
+`APP_NAME` and `APP_LOGO` control generated Android resources for all variants.
+The permanent live application ID remains `com.okoda.usual`. Defaults are
+`Usual` and the provisional `assets/logo.png` (matching `assets/logo.svg`).
+Branding changes take effect in a rebuilt/reinstalled APK, not an installed
+application when its environment changes.
 
-## Configuration contract to implement
+From the repository root:
 
-```dotenv
-APP_NAME=Usual
-APP_LOGO=path/to/logo.png
+```sh
+APP_NAME='Our Usual' APP_LOGO=assets/logo.png \
+  ./android/gradlew -p android :app:assembleLiveDebug
 ```
 
-Resolve environment variables first, then ignored local
-`android/branding.local.properties`, then bundled defaults when values are
-absent. Do not auto-load arbitrary `.env` files. An explicitly empty or invalid
-configured value is an error, not a reason to silently use a default.
+Or create the ignored `branding.local.properties` at the repository root:
 
-`APP_LOGO` names a local PNG build input, resolved relative to the `android/`
-root unless absolute. URLs and runtime file access are unsupported. Validate
-file existence/readability, PNG decoding, supported size/aspect ratio, and
-decoded pixel bounds. Errors should name the configuration key and offending
-path clearly. The Android issue must choose and document exact supported
-dimensions and default asset location.
+```properties
+APP_NAME=Our Usual
+APP_LOGO=assets/logo.png
+```
 
-Use one Gradle task/provider configuration to generate escaped application-name
-resources, an in-app brand image, density-specific legacy launcher images, and
-adaptive/round launcher resources into the build directory. Register both the
-name value and logo bytes as task inputs so changing either invalidates outputs.
-Avoid editing checked-in source resources during a build or using an external
-image CLI that is not part of the reproducible toolchain.
+Then run `./android/gradlew -p android :app:assembleLiveDebug` normally.
+Environment values override that file; omitted properties use defaults. Relative
+logo paths resolve from the repository root; absolute local build paths also
+work. The live flavor requires your ignored
+`android/app/src/live/google-services.json`. For a secret-free local build use
+`:app:assembleEmulatorDebug` instead. Outputs are under
+`android/app/build/outputs/apk/{live|emulator}/debug/`.
 
-Wire the manifest launcher label and Compose brand surfaces to generated
-resources. Keep a stable application ID, independent of name/logo. Debug/release
-must resolve the documented intended branding through the same path, without
-hidden release-only defaults. Signing keys stay outside the repository.
+Names must be 1–60 characters on one line. Logos must be readable, valid square
+PNGs, 192–4096 pixels per side and at most 10 MiB. Transparent PNGs are
+supported. Explicit blank, missing, damaged or unsuitable assets fail the build
+with an `APP_LOGO` error; there is no silent fallback for a configured invalid
+file. Keep large unrelated images and private branding files outside tracked
+source.
 
-## Verification required in the Android PR
+The `generateBranding` Gradle task creates the launcher label, in-app logo,
+legacy density icons, adaptive foreground/background and round icon resources
+under `android/app/build/generated/branding/res`. Generated assets are ignored.
+Adaptive icons use Android's safe zone; leave intentional internal padding in
+your source logo when needed. Notification status-bar icons remain a simple
+monochrome mark for Android legibility. Debug and release share the same
+branding inputs; use the intended configuration for each build. CI uses
+defaults.
 
-- Build the default debug APK and inspect its launcher label/resources.
-- Rebuild with a second name/logo; verify changed label/icon/in-app surfaces and
-  unchanged application ID. Include names needing XML escaping.
-- Test missing/unreadable/corrupt/wrong-type/unsupported-dimension assets and
-  empty explicit values. Ensure useful build failures.
-- Build twice with different values without manual source edits or stale assets;
-  verify task input/cache behavior and unsigned release resources.
-- Document exact working commands, local file contents, paths, supported logo
-  constraints, and APK output paths once those commands exist.
-
-Changing environment variables affects the next build. Installing the resulting
-APK is necessary to change the installed application's name/icon. It cannot
-rebrand an already installed app dynamically. Runtime branding infrastructure is
-outside scope.
+Gradle tracks the name and logo contents, so changing either regenerates
+resources on rebuild without editing Kotlin source or unrelated configuration.
+Remove/unset overrides to restore defaults. Release packaging/signing is a
+separate development step; branding does not change the Firebase registration,
+OAuth configuration or application ID.

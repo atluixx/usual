@@ -1,129 +1,79 @@
-# Incremental delivery roadmap
+# Delivery roadmap and acceptance evidence
 
-The owner selected Firebase Auth + Firestore, then restored guest-first access
-with optional Google linking (#7). Go/PostgreSQL and mandatory email/password
-onboarding are superseded. Permanent Android ID: `com.okoda.usual`; project:
-`getusualapp`; database: Standard `(default)` in São Paulo. Shared saved status,
-deletion for both partners, and old-couple deletion on unpair/account deletion
-remain approved.
+The selected backend is Firebase Authentication, Firestore Standard and private
+Storage in `getusualapp`, São Paulo. Guest-first access with optional Google
+linking supersedes mandatory email onboarding and the earlier Go proposal. The
+live Android ID is permanently `com.okoda.usual`. Shared saves, deletion for
+both, and old-couple deletion after unpair/account deletion are approved.
 
-## Current work
+## Review stack
 
-- [#1 — Repository foundation](https://github.com/atluixx/usual/issues/1):
-  README, contributor workflow, templates, architecture, and least-privilege CI
-  in PR #5.
-- [#6 — Firebase Android foundation](https://github.com/atluixx/usual/issues/6):
-  registered Android app, guest/Google and legacy sign-in flows, private
-  Firestore profile, prototype Security Rules, emulators, Android build/tests,
-  and updated documents. PR #5 is expanded around this final implementation; no
-  merge is automatic.
-- [#7 — Guest-first correction](https://github.com/atluixx/usual/issues/7): no
-  email/password gate, optional Google linking with preserved UID, recovery
-  limits, and updated pairing prerequisites. Included in foundation PR #5.
-- [#2 — Go foundation](https://github.com/atluixx/usual/issues/2): retired, not
-  implemented, because the owner chose Firebase.
+All implementation is on issue branches, never pushed to `main`. A human merges
+these open dependent PRs in order, retargeting/rebasing each layer as needed:
 
-The implemented profile schema and setup are in [firebase.md](firebase.md).
-Auth/Firestore emulator tests prove identity/profile operations and access
-denial; Android unit tests target UI state and retry/session behavior. Record
-actual build, CI, and device results in the PR rather than equating code
-presence with proof.
+| Issues     | Pull request                                    | Scope                                                          |
+| ---------- | ----------------------------------------------- | -------------------------------------------------------------- |
+| #1, #6, #7 | [#5](https://github.com/atluixx/usual/pull/5)   | Repository, Android/Firebase, guest access and optional Google |
+| #4         | [#12](https://github.com/atluixx/usual/pull/12) | Mutual pairing and identity lifecycle                          |
+| #9         | [#13](https://github.com/atluixx/usual/pull/13) | Photos/drawings/messages, durable sends and private gallery    |
+| #10        | [#14](https://github.com/atluixx/usual/pull/14) | Persistent Draw & Guess and live tic-tac-toe                   |
+| #11        | [#15](https://github.com/atluixx/usual/pull/15) | FCM, preferences, deep links and both Glance widgets           |
+| #3         | Branding branch                                 | Build-time branding and integrated verification                |
 
-## First end-to-end product milestone
+Issue #2 (Go) is retired. Issue #8 tracks the legacy email action-page error;
+guest pairing never requires that page or email verification. No licence or
+public release is claimed. README features describe the implemented branch.
 
-The goal remains: two people pair, send/receive a drawing, open it from a
-notification and memory widget, and find it in a private chronological gallery.
-Deliver in small issue-linked PRs:
+## Evidence ledger
 
-1. Finish the Firebase foundation and guest-first correction (#6, #7).
-2. [#4 — Trusted Firebase pairing](https://github.com/atluixx/usual/issues/4):
-   contracts, anonymous guests, mutual consent, transactional membership,
-   idempotency, Security Rules, and concurrency/abuse tests.
-3. Scope Android pairing screens after that contract, with loading, error,
-   retry, expiry/revocation, and two-installation/restart evidence.
-4. Scope private drawing upload/finalization/history, storage authorization,
-   idempotency, tombstones, durable cleanup/delivery events, and cross-couple
-   tests.
-5. Scope drawing canvas/preview, durable sends, received detail, and private
-   gallery against those contracts. Prove exchange/retry/restart before push
-   integration.
-6. Scope device registration/preferences, FCM delivery/retries, permission
-   denial, deep links, and duplicate/stale-event behavior.
-7. Scope Glance memory/quick-action widgets with supported WorkManager updates,
-   received-only eligibility, privacy controls, deep links, and stale/offline
-   tests.
+Code presence is not acceptance evidence. The backend suite currently has 24
+passing emulator tests; Auth/Firestore rules 16; Storage rules 3; actual
+Firebase callable/Storage/Firestore SDK integration 3; Android state/deep-link
+units 14. The SDK integration includes live match snapshots and reconnect
+recovery. CI on PRs #5/#12/#13/#14/#15 passed their relevant checks. Later
+changes need their own checks; see the final verification record when available.
 
-Unnumbered tasks above are sequencing proposals. Search/create focused issues
-before implementing them; split further when necessary. No large speculative
-catalogue of tasks or games. [#3](https://github.com/atluixx/usual/issues/3)
-retains build-time branding as separate work; a default icon is not that
-feature.
+A live-project smoke test used two deliberately created, agent-owned anonymous
+identities and synthetic media. It proved mutual pairing, private drawing
+upload/read, same-key retry, shared save, fresh widget snapshot, legal
+tic-tac-toe completion and media denial after deletion. Deletion was requested
+for both test identities afterward. This caught and corrected the Storage
+service agent's missing Firestore lookup role. The FCM Eventarc trigger is
+deployed. None of this alone proves notification display or launcher rendering.
 
-## Later MVP work
+| MVP criterion                           | Current evidence / remaining verification                                                                             |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| 1. Accounts and secure pairing          | Auth/operation/SDK tests and live pairing; Android two-installation mutual pairing passed                             |
+| 2. Invitation validity/non-reuse        | Operation concurrency/idempotency/expiry tests and denied direct client writes                                        |
+| 3. Photos/drawings                      | Validation, Storage and live SDK drawing exchange; Android picker/canvas and received detail passed                   |
+| 4. Retry without duplicates             | Immutable upload, lost response and same-key receipts; Android offline/restart delivered exactly once                 |
+| 5. Private gallery                      | Bounded authorized queries and cross-couple rules; Android received gallery/detail/save passed                        |
+| 6. Save/unsave/delete                   | Shared state, tombstone and revoked media tests; live save/delete passed                                              |
+| 7. Widget display/open                  | Fresh received-only snapshot tested; Android received widget render/tap and opt-out passed                            |
+| 8. Push when allowed                    | Outbox/retry/authorization tests; live FCM device display pending                                                     |
+| 9. Permission denial                    | Core server operations do not depend on notification preferences; Android core flows passed with permission ungranted |
+| 10. Async game persistence              | Role-secret prompt/drawing/guess transactions tested; Android round/restart/guess passed                              |
+| 11. Live game recovery                  | Versioned moves and SDK listener reconnect tested; Android restart and consistent winner passed                       |
+| 12. Invalid/duplicate/out-of-turn moves | Trusted tests reject illegal/stale actions, serialize conflicts and preserve one result                               |
+| 13. Unauthorized access                 | Negative Auth, callable, Firestore and Storage tests, substituted couple IDs and revoked identities                   |
+| 14. Unpair/account deletion             | Immediate denial and durable cleanup tests; seven-day provider soft-delete documented; no restore test                |
+| 15. Tests/lint/builds                   | Prior PR CI passed; final Android/live/release checks in progress                                                     |
+| 16. Branding                            | Default/custom APK labels and packaged logos, stable ID and invalid input checks passed                               |
+| 17. Accurate README                     | Minimal current features/setup; links verified; detailed evidence outside README                                      |
 
-- Photos through Android Photo Picker/camera, shared save/unsave/delete UI, and
-  complete account deletion/unpair cleanup and cache/widget invalidation.
-- Draw & Guess with persisted private prompts/turns, asynchronous resume, and
-  notifications. Define rounds, guess limits, prompts, and cancellation first.
-- Tic-tac-toe with trusted legal moves, Firestore listeners, consistent results,
-  version conflicts, and reconnection snapshots. No broader catalogue
-  beforehand.
+## External-testing prerequisites
 
-Backend access revocation must exist before shared content is exposed. Bulk
-cleanup cannot depend on an unbounded Firestore transaction. Account deletion,
-media reads, and game moves require explicit trusted authorization because Admin
-SDK operations bypass Security Rules.
+The integrated Android pass is recorded in [verification](verification.md); live
+FCM and final release results are being recorded. A read-only provider check
+confirmed seven-day Storage soft-delete retention, no versioning, disabled
+Firestore PITR and no backup schedules. No backup restore has been tested. A
+server cannot recall already downloaded screenshots or an offline launcher's
+retained pixels; preview opt-in explains that limit. Google chooser/real-account
+recovery needs a controlled Google account; emulator credentials do not prove
+it.
 
-## Open decisions
-
-The application ID, backend, identity provider/method, database edition, and
-region are settled. Minimum Android version is API 26 in the foundation;
-compile/ target SDK is 36 to match available platform tooling and compatible
-dependencies.
-
-Still needed at the relevant milestone: storage/function deployment and budget;
-precise deletion/backup/log retention and restore policy; offline widget preview
-exposure; end-to-end encryption expectations; final branding and license; game
-rules. No real private media should be collected before its access/deletion
-design is implemented and verified. Current encryption/HTTPS is not end-to-end
-encryption.
-
-## CI
-
-Repository checks run a locked npm install plus formatting/Markdown lint.
-Firebase checks use a pinned CLI and local Auth/Firestore emulators with
-`demo-usual` and no production credentials. Android checks
-compile/lint/unit-test the emulator flavor with a dummy client config, pinned
-wrapper/checksum, and JDK 21. CI permissions are read-only; no production deploy
-or signing keys are needed. External links and real-device behavior are not
-automatically proved by these jobs.
-
-Add emulator UI/device tests where they verify behavior unit tests cannot. Test
-future shared resources using two distinct couples, including REST/callable and
-listener ID substitution, stale operations, and retry/concurrency cases.
-
-## MVP acceptance evidence ledger
-
-All complete MVP criteria remain **unverified** until their full behavior has
-linked evidence. Authentication/profile tests alone do not complete pairing or
-any end-to-end content criterion.
-
-| Spec criterion                          | Evidence required                                                            | Status     |
-| --------------------------------------- | ---------------------------------------------------------------------------- | ---------- |
-| 1. Accounts and secure pairing          | Identity foundation plus two-device verified consent and recovery            | Unverified |
-| 2. Invitation validity/non-reuse        | Trusted operation + rules/concurrency abuse tests                            | Unverified |
-| 3. Photos and drawings                  | Two-device exchange and format validation                                    | Unverified |
-| 4. Retry without duplicates             | Lost response, restart, same-key/concurrent tests                            | Unverified |
-| 5. Private chronological gallery        | Isolation, query pagination, Android UI                                      | Unverified |
-| 6. Save/unsave/delete                   | Shared state, tombstone, media denial                                        | Unverified |
-| 7. Widget display/open                  | Received-only visibility, launcher/deep-link/stale-state                     | Unverified |
-| 8. Push when allowed                    | FCM device evidence and retry tests                                          | Unverified |
-| 9. Permission denial                    | Core exchange works without notifications                                    | Unverified |
-| 10. Async game persistence              | Role secrecy and restart/resume                                              | Unverified |
-| 11. Live game recovery                  | Moves, interruption, listener reconnect/snapshot                             | Unverified |
-| 12. Invalid/duplicate/out-of-turn moves | Trusted rules, idempotency, version conflicts                                | Unverified |
-| 13. Unauthorized access rejection       | Cross-couple IDs over calls/media/listeners; profile tests are only a subset | Unverified |
-| 14. Account deletion/unpairing          | Revocation, durable cleanup, offline reconciliation, restores                | Unverified |
-| 15. Relevant tests/lint/builds          | Foundation checks plus complete feature/device checks                        | Unverified |
-| 16. Build-time branding                 | Default/custom/invalid assets and APK resource checks                        | Unverified |
-| 17. Accurate MVP README                 | Working setup and final feature audit                                        | Unverified |
+CI uses pinned dependencies, read-only GitHub permissions, dummy `demo-usual`
+configuration and no production secrets. Android checks compile/lint/unit-test
+API 36, plus default/custom/invalid APK branding. No workflow merges, deploys
+production, signs releases, or bypasses branch protection. A maintainer should
+configure required PR reviews/checks on GitHub before merging.

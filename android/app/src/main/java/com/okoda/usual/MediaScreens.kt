@@ -103,8 +103,10 @@ fun ContentComposer(model: MediaViewModel, avatar: Boolean = false, gameId: Stri
                     } catch (_: Exception) { error = "Camera unavailable. Choose a photo instead." }
                 }) { Text("Camera") }
             }
-            OutlinedTextField(note, { note = it.take(280) }, label = { Text("A short message") }, modifier = Modifier.fillMaxWidth())
-            Button(onClick = { model.queue("MESSAGE", note, onQueued = { note = "" }) }, enabled = !state.busy && note.isNotBlank()) { Text("Send message") }
+            if (!drawing) {
+                OutlinedTextField(note, { note = it.take(280) }, label = { Text("A short message") }, modifier = Modifier.fillMaxWidth())
+                Button(onClick = { model.queue("MESSAGE", note, onQueued = { note = "" }) }, enabled = !state.busy && note.isNotBlank()) { Text("Send message") }
+            }
         }
         if (drawing && !avatar) DrawingCanvas { file -> kind = "DRAWING"; preview = file }
         error?.let { Text(it) }

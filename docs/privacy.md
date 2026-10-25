@@ -86,12 +86,15 @@ promise instant remote erasure of pixels already shown on another device.
 
 ## Provider retention and logs
 
-No app-managed database backups, exports, object versions, or restore job are
-provisioned by this repository. Provider soft-delete/backup retention must be
-verified in the project before external testing; successful object deletion
-requests are not proof of deletion from provider recovery copies. Any future
-restore must reapply deletion/revocation state before serving traffic. A backup
-restore has not been tested and is not an accepted MVP criterion.
+A read-only provider check on 2026-10-25 confirmed the São Paulo bucket has
+seven-day soft-delete retention (604800 seconds), with object versioning,
+retention locks and lifecycle policies absent. Deletion immediately denies app
+access; privileged provider recovery copies can remain for those seven days. The
+Standard Firestore database has point-in-time recovery disabled and zero backup
+schedules. No app-managed exports or restore job are provisioned. Recheck these
+settings if infrastructure changes. Any future restore must reapply
+deletion/revocation state before serving traffic. No backup restore or provider
+physical-erasure audit has been performed.
 
 Application logs contain only fixed error codes/aggregate diagnostics, never
 passwords, tokens/FIDs, invitation codes, emails, media, object URLs, prompts,
@@ -105,3 +108,10 @@ ownership, field/type/size tampering, unknown writes, private queries,
 cross-couple IDs, revoked identities, stale actions, prompt secrecy and upload
 boundaries. Tests and remaining device/provider limitations are recorded in the
 roadmap and PRs.
+
+Closing a couple resets both members' widget-preview consent in the same
+transaction; a new couple requires opting in again. Pending-send discard stops
+local retries and removes that local draft. It cannot undo a send already
+committed on the server; remove a delivered item through Delete for both in
+history. Partial canvas strokes/previews are not an autosaved draft feature;
+queued sends, game matches and uploaded game drawings are persistent.
