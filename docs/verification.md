@@ -6,7 +6,9 @@ fixtures are committed. CI uses `demo-usual`, not the live project.
 
 ## Automated checks
 
-- `npm run check`: Prettier and Markdown lint passed.
+- `npm run check`: Prettier and Markdown lint passed. All five PR #16 checks
+  passed on implementation commit `0d20a19`, including the Android APK branding
+  tests; parent PR #15 checks passed on `479f365`.
 - `npm run test:backend`: 24 trusted-operation emulator tests passed, covering
   invitation races/expiry/reuse, membership, lifecycle cleanup, media
   validation, idempotency, game rules/concurrency, notification leases/retries
@@ -19,7 +21,9 @@ fixtures are committed. CI uses `demo-usual`, not the live project.
   callable authentication, uploads, content exchange, game snapshots and
   reconnect recovery.
 - Android state/deep-link suite: 14 unit tests passed. Prior PR CI also compiled
-  and linted the emulator flavor. Final live/release results are recorded below.
+  and linted the emulator flavor. The final live Debug compilation/lint and all
+  14 live unit tests passed. Lint reported 31 warnings and 4 hints, with no
+  errors; these include the SDK lint check for the superseded token callback.
 - `npm run test:branding`: default/custom APK labels, packaged logos, unchanged
   application ID, missing/damaged assets and blank names passed. The test
   restores the default build after checking changed inputs.
@@ -62,8 +66,15 @@ service agent's missing Firestore cross-service rules role.
 
 Firestore/Storage rules, indexes, trusted API, scheduled cleanup, identity
 cleanup and the FCM delivery trigger were deployed successfully. The provider
-retention settings were read back; see [privacy](privacy.md). Provider delivery
-acceptance alone is not evidence that a notification appeared on Android.
+retention settings were read back; see [privacy](privacy.md). A separate Google
+APIs Android 36 run installed the optimized live APK copy signed with the local
+debug key. Anonymous pairing and notification consent passed. A synthetic
+drawing committed through the normal API produced a real FCM notification with
+the generic preview, and tapping it opened the authorized received drawing and
+its synthetic caption. No privileged test send or fake notification substituted
+for the deployed trigger. The temporary identities were subsequently submitted
+for deletion. Provider delivery acceptance alone was not counted as
+device-display evidence.
 
 ## Remaining verification
 

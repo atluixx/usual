@@ -18,7 +18,7 @@ these open dependent PRs in order, retargeting/rebasing each layer as needed:
 | #9         | [#13](https://github.com/atluixx/usual/pull/13) | Photos/drawings/messages, durable sends and private gallery    |
 | #10        | [#14](https://github.com/atluixx/usual/pull/14) | Persistent Draw & Guess and live tic-tac-toe                   |
 | #11        | [#15](https://github.com/atluixx/usual/pull/15) | FCM, preferences, deep links and both Glance widgets           |
-| #3         | Branding branch                                 | Build-time branding and integrated verification                |
+| #3         | [#16](https://github.com/atluixx/usual/pull/16) | Build-time branding and integrated verification                |
 
 Issue #2 (Go) is retired. Issue #8 tracks the legacy email action-page error;
 guest pairing never requires that page or email verification. No licence or
@@ -39,7 +39,8 @@ upload/read, same-key retry, shared save, fresh widget snapshot, legal
 tic-tac-toe completion and media denial after deletion. Deletion was requested
 for both test identities afterward. This caught and corrected the Storage
 service agent's missing Firestore lookup role. The FCM Eventarc trigger is
-deployed. None of this alone proves notification display or launcher rendering.
+deployed. Separate Android checks proved launcher rendering/tap and controlled
+live FCM notification display/tap on an optimized APK.
 
 | MVP criterion                           | Current evidence / remaining verification                                                                             |
 | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
@@ -50,14 +51,14 @@ deployed. None of this alone proves notification display or launcher rendering.
 | 5. Private gallery                      | Bounded authorized queries and cross-couple rules; Android received gallery/detail/save passed                        |
 | 6. Save/unsave/delete                   | Shared state, tombstone and revoked media tests; live save/delete passed                                              |
 | 7. Widget display/open                  | Fresh received-only snapshot tested; Android received widget render/tap and opt-out passed                            |
-| 8. Push when allowed                    | Outbox/retry/authorization tests; live FCM device display pending                                                     |
+| 8. Push when allowed                    | Outbox/retry/authorization tests; Live optimized Android notification display/tap passed                              |
 | 9. Permission denial                    | Core server operations do not depend on notification preferences; Android core flows passed with permission ungranted |
 | 10. Async game persistence              | Role-secret prompt/drawing/guess transactions tested; Android round/restart/guess passed                              |
 | 11. Live game recovery                  | Versioned moves and SDK listener reconnect tested; Android restart and consistent winner passed                       |
 | 12. Invalid/duplicate/out-of-turn moves | Trusted tests reject illegal/stale actions, serialize conflicts and preserve one result                               |
 | 13. Unauthorized access                 | Negative Auth, callable, Firestore and Storage tests, substituted couple IDs and revoked identities                   |
 | 14. Unpair/account deletion             | Immediate denial and durable cleanup tests; seven-day provider soft-delete documented; no restore test                |
-| 15. Tests/lint/builds                   | Prior PR CI passed; final Android/live/release checks in progress                                                     |
+| 15. Tests/lint/builds                   | Prior PR CI passed; All implementation CI passed; live lint/unit and R8 APK/AAB passed                                |
 | 16. Branding                            | Default/custom APK labels and packaged logos, stable ID and invalid input checks passed                               |
 | 17. Accurate README                     | Minimal current features/setup; links verified; detailed evidence outside README                                      |
 
